@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestionare carti - Biblioteca</title>
+
+    <title>Carti - Biblioteca</title>
 
     <style>
         body {
@@ -32,6 +33,7 @@
 
         .toolbar input {
             width: 300px;
+            max-width: 100%;
             padding: 10px;
         }
 
@@ -155,6 +157,13 @@
             padding: 0 4px;
             margin-left: 6px;
         }
+
+        .reader-info {
+            background: #f2f2f2;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 
@@ -169,18 +178,30 @@
     <a href="/carti">Carti</a>
 </nav>
 
-<h2>Gestionarea cartilor</h2>
+{% if este_cititor %}
+    <h2>Catalogul bibliotecii</h2>
+
+    <div class="reader-info">
+        Poti consulta cartile disponibile in catalog.
+    </div>
+{% else %}
+    <h2>Gestionarea cartilor</h2>
+{% endif %}
 
 <div class="toolbar">
+
     <input
         type="search"
         id="searchInput"
         placeholder="Cauta carte dupa titlu..."
         oninput="cautaCarti()">
 
-    <button onclick="deschideAdaugare()">
-        + Adauga carte
-    </button>
+    {% if este_administrator or este_bibliotecar %}
+        <button type="button" onclick="deschideAdaugare()">
+            + Adauga carte
+        </button>
+    {% endif %}
+
 </div>
 
 <table>
@@ -192,17 +213,26 @@
             <th>Categorie</th>
             <th>Autori</th>
             <th>An</th>
-            <th>Actiuni</th>
+
+            {% if este_administrator or este_bibliotecar %}
+                <th>Actiuni</th>
+            {% endif %}
         </tr>
     </thead>
 
     <tbody>
         {% for carte in carti %}
+
         <tr class="carte-row">
 
             <td>{{ carte[0] }}</td>
-            <td class="titlu-carte">{{ carte[1] }}</td>
+
+            <td class="titlu-carte">
+                {{ carte[1] }}
+            </td>
+
             <td>{{ carte[2] or '-' }}</td>
+
             <td>{{ carte[4] }}</td>
 
             <td>
@@ -221,30 +251,46 @@
 
             <td>{{ carte[6] or '-' }}</td>
 
-            <td>
-                <div class="actions">
+            {% if este_administrator or este_bibliotecar %}
 
-                    <button onclick="deschideModificare({{ carte[0] }})">
-                        Modifica
-                    </button>
+                <td>
+                    <div class="actions">
 
-                    <form
-                        action="{{ url_for('sterge_carte', id=carte[0]) }}"
-                        method="POST"
-                        onsubmit="return confirm('Sigur stergi cartea?');">
+                        <button
+                            type="button"
+                            onclick="deschideModificare({{ carte[0] }})">
+                            Modifica
+                        </button>
 
-                        <button type="submit">Sterge</button>
-                    </form>
+                        <form
+                            action="{{ url_for('sterge_carte', id=carte[0]) }}"
+                            method="POST"
+                            onsubmit="return confirm('Sigur stergi cartea?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                </div>
-            </td>
+                            <button type="submit">
+                                Sterge
+                            </button>
+
+                        </form>
+
+                    </div>
+                </td>
+
+            {% endif %}
 
         </tr>
+
         {% endfor %}
     </tbody>
 </table>
 
-<p id="noResults" hidden>Nu au fost gasite carti.</p>
+<p id="noResults" hidden>
+    Nu au fost gasite carti.
+</p>
+
+
+{% if este_administrator or este_bibliotecar %}
 
 <!-- FORMULAR ADAUGARE / MODIFICARE -->
 
@@ -255,23 +301,33 @@
         <h2 id="modalTitle">Adauga carte</h2>
 
         <form id="carteForm" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="form-group">
-                <label>Titlu</label>
-                <input type="text" id="titlu" name="titlu"
-                       maxlength="200" required>
+                <label for="titlu">Titlu</label>
+
+                <input
+                    type="text"
+                    id="titlu"
+                    name="titlu"
+                    maxlength="200"
+                    required>
             </div>
 
             <div class="form-group">
-                <label>ISBN</label>
-                <input type="text" id="isbn" name="isbn"
-                       maxlength="20">
+                <label for="isbn">ISBN</label>
+
+                <input
+                    type="text"
+                    id="isbn"
+                    name="isbn"
+                    maxlength="20">
             </div>
 
-            <!-- CATEGORIE INTRODUSA DE LA TASTATURA -->
+            <!-- CATEGORIE -->
 
             <div class="form-group">
-                <label>Categorie</label>
+                <label for="categorieText">Categorie</label>
 
                 <input
                     type="text"
@@ -294,27 +350,39 @@
             </div>
 
             <div class="form-group">
-                <label>Editura</label>
-                <input type="text" id="editura" name="editura"
-                       maxlength="150">
+                <label for="editura">Editura</label>
+
+                <input
+                    type="text"
+                    id="editura"
+                    name="editura"
+                    maxlength="150">
             </div>
 
             <div class="form-group">
-                <label>An publicare</label>
-                <input type="number" id="an_publicare"
-                       name="an_publicare" min="1450" max="2100">
+                <label for="an_publicare">An publicare</label>
+
+                <input
+                    type="number"
+                    id="an_publicare"
+                    name="an_publicare"
+                    min="1450"
+                    max="2100">
             </div>
 
             <div class="form-group">
-                <label>Descriere</label>
-                <textarea id="descriere" name="descriere"
-                          rows="3"></textarea>
+                <label for="descriere">Descriere</label>
+
+                <textarea
+                    id="descriere"
+                    name="descriere"
+                    rows="3"></textarea>
             </div>
 
-            <!-- AUTORI INTRODUSI DE LA TASTATURA -->
+            <!-- AUTORI -->
 
             <div class="form-group">
-                <label>Autori</label>
+                <label for="autorSearch">Autori</label>
 
                 <div class="autocomplete">
 
@@ -325,18 +393,24 @@
                         autocomplete="off"
                         oninput="cautaAutori()">
 
-                    <div class="suggestions" id="autorSuggestions"></div>
+                    <div
+                        class="suggestions"
+                        id="autorSuggestions"></div>
 
                 </div>
 
-                <div class="selected-authors" id="selectedAuthors"></div>
+                <div
+                    class="selected-authors"
+                    id="selectedAuthors"></div>
 
                 <div id="autoriHidden"></div>
             </div>
 
             <div class="modal-actions">
 
-                <button type="button" onclick="inchideModal()">
+                <button
+                    type="button"
+                    onclick="inchideModal()">
                     Anuleaza
                 </button>
 
@@ -351,7 +425,55 @@
     </div>
 </div>
 
+{% endif %}
+
+
 <script>
+
+    // CAUTAREA CARTILOR
+    // Disponibila pentru toate rolurile.
+
+    function cautaCarti() {
+
+        const cautare = document
+            .getElementById("searchInput")
+            .value
+            .toLowerCase()
+            .trim();
+
+        let rezultate = 0;
+
+        document.querySelectorAll(".carte-row").forEach(rand => {
+
+            const titlu = rand
+                .querySelector(".titlu-carte")
+                .textContent
+                .toLowerCase();
+
+            const vizibil = titlu.includes(cautare);
+
+            rand.hidden = !vizibil;
+
+            if (vizibil) {
+                rezultate++;
+            }
+
+        });
+
+        document.getElementById("noResults").hidden =
+            rezultate > 0;
+    }
+
+</script>
+
+
+{% if este_administrator or este_bibliotecar %}
+
+<script>
+
+    // FUNCTIONALITATI CRUD
+    // Disponibile doar pentru Administrator si Bibliotecar.
+
     const cartiData = {{ carti | tojson }};
     const autoriCarti = {{ autori_carti | tojson }};
 
@@ -363,14 +485,20 @@
 
     let autoriSelectati = [];
 
+
     function numeAutor(autor) {
-        return (autor[1] + " " + (autor[2] || "")).trim();
+        return (
+            autor[1] + " " + (autor[2] || "")
+        ).trim();
     }
 
+
     function deschideAdaugare() {
+
         formular.reset();
 
         autoriSelectati = [];
+
         actualizeazaAutori();
 
         document.getElementById("modalTitle").textContent =
@@ -378,16 +506,26 @@
 
         formular.action = "/carti/adauga";
 
+        document.getElementById("categorie_id").value = "";
+
         document.getElementById("autorSearch").value = "";
-        document.getElementById("autorSuggestions").style.display = "none";
+
+        document.getElementById("autorSuggestions").style.display =
+            "none";
 
         modal.classList.add("active");
     }
 
-    function deschideModificare(id) {
-        const carte = cartiData.find(c => c[0] === id);
 
-        if (!carte) return;
+    function deschideModificare(id) {
+
+        const carte = cartiData.find(
+            c => c[0] === id
+        );
+
+        if (!carte) {
+            return;
+        }
 
         formular.reset();
 
@@ -396,11 +534,20 @@
 
         formular.action = "/carti/modifica/" + id;
 
-        document.getElementById("titlu").value = carte[1] || "";
-        document.getElementById("isbn").value = carte[2] || "";
-        document.getElementById("editura").value = carte[5] || "";
-        document.getElementById("an_publicare").value = carte[6] || "";
-        document.getElementById("descriere").value = carte[7] || "";
+        document.getElementById("titlu").value =
+            carte[1] || "";
+
+        document.getElementById("isbn").value =
+            carte[2] || "";
+
+        document.getElementById("editura").value =
+            carte[5] || "";
+
+        document.getElementById("an_publicare").value =
+            carte[6] || "";
+
+        document.getElementById("descriere").value =
+            carte[7] || "";
 
         const categorie = categoriiData.find(
             c => c[0] === carte[3]
@@ -412,24 +559,32 @@
         document.getElementById("categorie_id").value =
             carte[3];
 
-        autoriSelectati = [...(autoriCarti[id] || [])];
+        autoriSelectati = [
+            ...(autoriCarti[id] || [])
+        ];
 
         actualizeazaAutori();
 
         document.getElementById("autorSearch").value = "";
-        document.getElementById("autorSuggestions").style.display = "none";
+
+        document.getElementById("autorSuggestions").style.display =
+            "none";
 
         modal.classList.add("active");
     }
 
+
     function cautaAutori() {
+
         const cautare = document
             .getElementById("autorSearch")
             .value
             .toLowerCase()
             .trim();
 
-        const lista = document.getElementById("autorSuggestions");
+        const lista = document.getElementById(
+            "autorSuggestions"
+        );
 
         lista.innerHTML = "";
 
@@ -444,6 +599,7 @@
         );
 
         rezultate.forEach(autor => {
+
             const optiune = document.createElement("div");
 
             optiune.className = "suggestion";
@@ -460,33 +616,54 @@
             rezultate.length > 0 ? "block" : "none";
     }
 
+
     function selecteazaAutor(id) {
+
         if (!autoriSelectati.includes(id)) {
             autoriSelectati.push(id);
         }
 
         document.getElementById("autorSearch").value = "";
-        document.getElementById("autorSuggestions").style.display = "none";
+
+        document.getElementById("autorSuggestions").style.display =
+            "none";
 
         actualizeazaAutori();
     }
+
 
     function eliminaAutor(id) {
-        autoriSelectati = autoriSelectati.filter(a => a !== id);
+
+        autoriSelectati = autoriSelectati.filter(
+            a => a !== id
+        );
+
         actualizeazaAutori();
     }
 
+
     function actualizeazaAutori() {
-        const container = document.getElementById("selectedAuthors");
-        const hidden = document.getElementById("autoriHidden");
+
+        const container = document.getElementById(
+            "selectedAuthors"
+        );
+
+        const hidden = document.getElementById(
+            "autoriHidden"
+        );
 
         container.innerHTML = "";
         hidden.innerHTML = "";
 
         autoriSelectati.forEach(id => {
-            const autor = autoriData.find(a => a[0] === id);
 
-            if (!autor) return;
+            const autor = autoriData.find(
+                a => a[0] === id
+            );
+
+            if (!autor) {
+                return;
+            }
 
             const tag = document.createElement("span");
             tag.className = "author-tag";
@@ -495,15 +672,21 @@
             text.textContent = numeAutor(autor);
 
             const buton = document.createElement("button");
+
             buton.type = "button";
             buton.textContent = "×";
-            buton.addEventListener("click", () => eliminaAutor(id));
+
+            buton.addEventListener("click", () => {
+                eliminaAutor(id);
+            });
 
             tag.appendChild(text);
             tag.appendChild(buton);
+
             container.appendChild(tag);
 
             const input = document.createElement("input");
+
             input.type = "hidden";
             input.name = "autori";
             input.value = id;
@@ -512,7 +695,9 @@
         });
     }
 
+
     formular.addEventListener("submit", function(event) {
+
         const categorieText = document
             .getElementById("categorieText")
             .value
@@ -524,8 +709,11 @@
         );
 
         if (!categorie) {
+
             event.preventDefault();
+
             alert("Selecteaza o categorie existenta.");
+
             return;
         }
 
@@ -533,50 +721,41 @@
             categorie[0];
 
         if (autoriSelectati.length === 0) {
+
             event.preventDefault();
+
             alert("Selecteaza cel putin un autor.");
+
             return;
         }
     });
+
 
     function inchideModal() {
         modal.classList.remove("active");
     }
 
+
     modal.addEventListener("click", event => {
-        if (event.target === modal) inchideModal();
+
+        if (event.target === modal) {
+            inchideModal();
+        }
+
     });
+
 
     document.addEventListener("keydown", event => {
-        if (event.key === "Escape") inchideModal();
+
+        if (event.key === "Escape") {
+            inchideModal();
+        }
+
     });
 
-    function cautaCarti() {
-        const cautare = document
-            .getElementById("searchInput")
-            .value
-            .toLowerCase()
-            .trim();
-
-        let rezultate = 0;
-
-        document.querySelectorAll(".carte-row").forEach(rand => {
-            const titlu = rand
-                .querySelector(".titlu-carte")
-                .textContent
-                .toLowerCase();
-
-            const vizibil = titlu.includes(cautare);
-
-            rand.hidden = !vizibil;
-
-            if (vizibil) rezultate++;
-        });
-
-        document.getElementById("noResults").hidden =
-            rezultate > 0;
-    }
 </script>
+
+{% endif %}
 
 </body>
 </html>

@@ -3,10 +3,35 @@
 
 <head>
     <meta charset="UTF-8">
+
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
     <title>Biblioteca - Acasa</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        .user-info {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f2f2f2;
+            border-radius: 6px;
+        }
+
+        nav a {
+            display: block;
+            margin: 12px 0;
+        }
+
+        button {
+            padding: 9px 15px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 
 <body>
@@ -15,22 +40,91 @@
 
 <h2>Pagina principala</h2>
 
-<p>
-    Bine ai venit in sistemul de gestionare a bibliotecii.
-</p>
+{% if utilizator_autentificat %}
+
+<div class="user-info">
+
+    <p>
+        <strong>Utilizator:</strong>
+
+        {{ utilizator_autentificat.nume }}
+        {{ utilizator_autentificat.prenume }}
+    </p>
+
+    <p>
+        <strong>Email:</strong>
+
+        {{ utilizator_autentificat.email }}
+    </p>
+
+    <p>
+        <strong>Rol:</strong>
+
+        {{ utilizator_autentificat.rol | capitalize }}
+    </p>
+
+</div>
+
+{% endif %}
 
 <h3>Administrare</h3>
 
 <nav>
-    <p><a href="/categorii">Gestionare categorii</a></p>
-    <p><a href="/autori">Gestionare autori</a></p>
-    <p><a href="/carti">Gestionare carti</a></p>
-    <p><a href="/exemplare">Gestionare exemplare</a></p>
-    <p><a href="/utilizatori">Gestionare utilizatori</a></p>
-    <p><a href="/roluri">Gestionare roluri</a></p>
-    <p><a href="/imprumuturi">Gestionare imprumuturi</a></p>
-    <p><a href="/rezervari">Gestionare rezervari</a></p>
+
+    <a href="/categorii">
+        Categorii
+    </a>
+
+    <a href="/autori">
+        Autori
+    </a>
+
+    <a href="/carti">
+        Carti
+    </a>
+
+
+    {% if este_administrator or este_bibliotecar %}
+
+        <a href="/exemplare">
+            Exemplare
+        </a>
+
+        <a href="/imprumuturi">
+            Imprumuturi
+        </a>
+
+        <a href="/rezervari">
+            Rezervari
+        </a>
+
+    {% endif %}
+
+
+    {% if este_administrator %}
+
+        <a href="/utilizatori">
+            Utilizatori
+        </a>
+
+        <a href="/roluri">
+            Roluri
+        </a>
+
+    {% endif %}
+
 </nav>
+
+<hr>
+
+<form action="/logout" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <button type="submit">
+        Deconectare
+    </button>
+
+</form>
 
 </body>
 </html>

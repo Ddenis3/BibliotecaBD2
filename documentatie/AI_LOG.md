@@ -164,3 +164,53 @@ ChatGPT a fost utilizat ca instrument de asistență pentru generarea codului, e
 Codul a fost integrat și executat local, iar funcționalitățile au fost verificate manual în aplicație.
 
 Deciziile privind organizarea interfeței și păstrarea funcționalităților au fost luate în urma evaluării rezultatelor.
+
+---
+
+## Etapa 3 – Autentificare si roluri
+
+### Instrument AI utilizat
+
+ChatGPT – OpenAI
+
+### Activitati realizate cu asistenta AI
+
+1. Analizarea cerintelor Etapei 3: autentificare, explicarea stocarii parolelor si minimum trei roluri cu drepturi diferite.
+2. Implementarea rutelor `GET/POST /login` si `POST /logout` in fisierul existent `app.py`.
+3. Implementarea verificarii parolelor prin `check_password_hash()` si pastrarea generarii de hash-uri cu `generate_password_hash()`.
+4. Implementarea sesiunilor Flask prin stocarea ID-ului utilizatorului in `session["user_id"]`.
+5. Implementarea verificarii autentificarii, starii contului si rolului la fiecare cerere protejata, folosind `@app.before_request`.
+6. Definirea drepturilor distincte pentru Administrator, Bibliotecar si Cititor.
+7. Crearea paginii `templates/login.html` si modificarea meniului din `templates/index.html` in functie de rol.
+8. Adaptarea paginilor `categorii.html`, `autori.html` si `carti.html` astfel incat Cititorul sa vada doar informatiile, fara formularele CRUD.
+9. Adaugarea protectiei CSRF prin Flask-WTF si a campurilor ascunse `csrf_token` in formularele POST.
+10. Crearea unei copii de siguranta inainte de modificarea automata a formularelor si actualizarea dependentelor din `requirements.txt`.
+11. Explicarea si documentarea modului de verificare a autentificarii, autorizarii si CSRF.
+
+### Decizii si modificari in urma colaborarii
+
+**Un singur fisier Python pentru logica aplicatiei.** A fost propusa initial separarea autentificarii intr-un modul `auth.py`, dar solutia a fost schimbata la cererea autorului proiectului: logica autentificarii si a drepturilor de acces a fost integrata direct in `app.py`. Fisierele HTML au ramas separate in `templates/`.
+
+**Adaptarea interfetelor pentru Cititor.** In paginile Categorii, Autori si Carti au fost ascunse actiunile de adaugare, modificare si stergere pentru Cititor. Restrictiile de securitate sunt aplicate separat si in backend, nu doar prin ascunderea butoanelor.
+
+**Protectie CSRF pentru formulare.** A fost utilizata biblioteca Flask-WTF (`Flask-WTF==1.3.0`). Pentru a pastra formularele CRUD existente, campurile CSRF au fost introduse in toate formularele POST identificate automat. Au fost raportate 20 de formulare actualizate in 10 fisiere HTML.
+
+### Verificari efectuate
+
+- Verificarea de sintaxa `python -m py_compile app.py` s-a incheiat fara erori.
+- Serverul Flask a pornit pe `http://127.0.0.1:5000` si a confirmat initializarea datelor demonstrative pentru cele noua tabele.
+- Au fost verificate vizual paginile Categorii, Autori si Carti pentru Cititor; formularele CRUD nu erau afisate.
+- O cerere POST catre `/categorii/adauga`, trimisa fara token CSRF folosind PowerShell, a fost respinsa cu mesajul `The CSRF token is missing.`.
+- Au fost parcurse testele de autentificare si de acces pe roluri in cadrul dezvoltarii locale. Verificarea negativa CSRF este confirmata explicit prin raspunsul serverului; celelalte teste trebuie pastrate in lista de verificare finala la prezentare.
+
+### Limitari si aspecte de securitate
+
+- Aplicatia este destinata demonstratiei locale, prin HTTP. Pentru publicare online sunt necesare HTTPS si `SESSION_COOKIE_SECURE=True`.
+- Sistemul nu include autentificare cu doi factori, recuperarea parolei prin email sau autentificare cu furnizori externi; acestea nu fac parte din cerintele etapei.
+- Protectia CSRF completeaza autorizarea: un token valid nu acorda drepturi de modificare unui Cititor.
+- Cheia secreta pentru semnarea sesiunilor este pastrata local, in `.flask_secret`, exclus din Git; fisierul `.env` ramane de asemenea exclus din Git.
+
+### Responsabilitatea verificarii
+
+ChatGPT a oferit cod, explicatii si pasi de testare. Autorul proiectului a integrat modificarile, a executat aplicatia local si a verificat rezultatele afisate. Functionalitatile sunt descrise in `ETAPA3.md`.
+

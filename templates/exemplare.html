@@ -214,6 +214,7 @@
                         action="{{ url_for('sterge_exemplar', id=exemplar[0]) }}"
                         method="POST"
                         onsubmit="return confirm('Sigur stergi exemplarul?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <button type="submit">
                             Sterge
@@ -247,6 +248,7 @@
         </h2>
 
         <form id="exemplarForm" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="form-group">
 

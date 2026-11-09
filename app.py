@@ -1,16 +1,377 @@
-from flask import Flask, jsonify, render_template, request, redirect, url_for
-from database import get_connection
-from fixtures import initialize_fixtures
+import os
+import sys
+import secrets
+import unicodedata
+
+from pathlib import Path
+from datetime import date
+from getpass import getpass
+
+from flask import (
+    Flask,
+    jsonify,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session,
+    flash,
+    abort,
+    g
+)
+
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
+
 from psycopg.errors import (
     UniqueViolation,
     ForeignKeyViolation,
     CheckViolation,
     NotNullViolation
 )
-from werkzeug.security import generate_password_hash
-from datetime import date
+
+from database import get_connection
+from fixtures import initialize_fixtures
+
 
 app = Flask(__name__)
+
+from flask_wtf.csrf import CSRFProtect
+csrf = CSRFProtect(app)
+
+
+# ==================================
+# CONFIGURARE AUTENTIFICARE
+# ==================================
+
+BASE_DIR = Path(__file__).resolve().parent
+SECRET_FILE = BASE_DIR / ".flask_secret"
+
+# Cheia este persistenta, pentru ca sesiunile
+# sa nu fie invalidate la fiecare repornire.
+#
+# Poate fi furnizata si prin variabila de mediu
+# FLASK_SECRET_KEY.
+
+secret_key = os.environ.get("FLASK_SECRET_KEY")
+
+if not secret_key:
+    if SECRET_FILE.exists():
+        secret_key = SECRET_FILE.read_text(
+            encoding="utf-8"
+        ).strip()
+    else:
+        secret_key = secrets.token_hex(32)
+
+        SECRET_FILE.write_text(
+            secret_key,
+            encoding="utf-8"
+        )
+
+app.config["SECRET_KEY"] = secret_key
+
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["PERMANENT_SESSION_LIFETIME"] = 3600
+
+# Pentru localhost folosim HTTP.
+# Pe HTTPS, SESSION_COOKIE_SECURE trebuie sa fie True.
+app.config["SESSION_COOKIE_SECURE"] = False
+
+
+# ==================================
+# FUNCTII AUTENTIFICARE
+# ==================================
+
+def normalizeaza_rol(rol):
+    text = unicodedata.normalize(
+        "NFKD",
+        str(rol or "")
+    )
+
+    text = "".join(
+        caracter
+        for caracter in text
+        if not unicodedata.combining(caracter)
+    )
+
+    return text.strip().lower()
+
+
+def utilizator_curent():
+    return getattr(g, "utilizator", None)
+
+
+def rol_curent():
+    utilizator = utilizator_curent()
+
+    if not utilizator:
+        return None
+
+    return utilizator["rol"]
+
+
+def este_administrator():
+    return rol_curent() == "administrator"
+
+
+def este_bibliotecar():
+    return rol_curent() == "bibliotecar"
+
+
+def este_cititor():
+    return rol_curent() == "cititor"
+
+
+@app.context_processor
+def variabile_template():
+    return {
+        "utilizator_autentificat": utilizator_curent(),
+        "este_administrator": este_administrator(),
+        "este_bibliotecar": este_bibliotecar(),
+        "este_cititor": este_cititor()
+    }
+
+
+# ==================================
+# DREPTURI DE ACCES
+# ==================================
+
+# Pagini accesibile fara autentificare
+RUTE_PUBLICE = {
+    "login",
+    "static"
+}
+
+# Administratorul are acces la toate
+# functionalitatile existente.
+
+# Bibliotecarul poate gestiona carti,
+# autori, categorii, exemplare,
+# imprumuturi si rezervari.
+
+RUTE_BIBLIOTECAR = {
+    "home",
+    "statistici",
+
+    "categorii",
+    "adauga_categorie",
+    "modifica_categorie",
+    "sterge_categorie",
+
+    "lista_autori",
+    "adauga_autor",
+    "modifica_autor",
+    "sterge_autor",
+
+    "lista_carti",
+    "adauga_carte",
+    "modifica_carte",
+    "sterge_carte",
+
+    "lista_exemplare",
+    "adauga_exemplar",
+    "modifica_exemplar",
+    "sterge_exemplar",
+
+    "lista_imprumuturi",
+    "adauga_imprumut",
+    "modifica_imprumut",
+    "sterge_imprumut",
+
+    "lista_rezervari",
+    "adauga_rezervare",
+    "modifica_rezervare",
+    "sterge_rezervare"
+}
+
+# Cititorul poate doar vizualiza
+# pagina principala si catalogul.
+
+RUTE_CITITOR = {
+    "home",
+    "categorii",
+    "lista_autori",
+    "lista_carti"
+}
+
+
+@app.before_request
+def verifica_autentificare_si_rol():
+    g.utilizator = None
+
+    endpoint = request.endpoint
+
+    if endpoint in RUTE_PUBLICE:
+        return None
+
+    # Logout-ul trebuie sa fie posibil
+    # inclusiv daca utilizatorul a fost dezactivat.
+    if endpoint == "logout":
+        return None
+
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return redirect(url_for("login"))
+
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    u.id,
+                    u.nume,
+                    u.prenume,
+                    u.email,
+                    u.activ,
+                    r.nume
+                FROM utilizatori u
+                JOIN roluri r
+                    ON r.id = u.rol_id
+                WHERE u.id = %s
+            """, (user_id,))
+
+            utilizator = cursor.fetchone()
+
+    if not utilizator or not utilizator[4]:
+        session.clear()
+        return redirect(url_for("login"))
+
+    rol = normalizeaza_rol(utilizator[5])
+
+    g.utilizator = {
+        "id": utilizator[0],
+        "nume": utilizator[1],
+        "prenume": utilizator[2],
+        "email": utilizator[3],
+        "rol": rol
+    }
+
+    # ADMINISTRATOR
+    if rol == "administrator":
+        return None
+
+    # BIBLIOTECAR
+    if rol == "bibliotecar":
+        if endpoint in RUTE_BIBLIOTECAR:
+            return None
+
+        abort(403)
+
+    # CITITOR
+    if rol == "cititor":
+        if (
+            endpoint in RUTE_CITITOR
+            and request.method == "GET"
+        ):
+            return None
+
+        abort(403)
+
+    # Rol necunoscut
+    abort(403)
+
+
+# ==================================
+# LOGIN
+# ==================================
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if session.get("user_id"):
+        return redirect(url_for("home"))
+
+    if request.method == "GET":
+        return render_template("login.html")
+
+    email = request.form.get(
+        "email", ""
+    ).strip().lower()
+
+    parola = request.form.get("parola", "")
+
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    id,
+                    parola_hash,
+                    activ
+                FROM utilizatori
+                WHERE LOWER(email) = %s
+            """, (email,))
+
+            utilizator = cursor.fetchone()
+
+    parola_corecta = False
+
+    if utilizator and utilizator[2]:
+        try:
+            parola_corecta = check_password_hash(
+                utilizator[1],
+                parola
+            )
+        except (ValueError, TypeError):
+            parola_corecta = False
+
+    if not parola_corecta:
+        flash("Email sau parola incorecta.")
+        return render_template("login.html"), 401
+
+    session.clear()
+    session["user_id"] = utilizator[0]
+    session.permanent = True
+
+    return redirect(url_for("home"))
+
+
+# ==================================
+# LOGOUT
+# ==================================
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+# ==================================
+# EROARE ACCES INTERZIS
+# ==================================
+
+@app.errorhandler(403)
+def acces_interzis(error):
+    return """
+        <!DOCTYPE html>
+        <html lang="ro">
+        <head>
+            <meta charset="UTF-8">
+            <title>Acces interzis</title>
+        </head>
+        <body style="font-family:Arial;margin:40px;">
+            <h1>403 - Acces interzis</h1>
+
+            <p>
+                Nu ai permisiunea necesara
+                pentru aceasta operatiune.
+            </p>
+
+            <a href="/">
+                Inapoi la pagina principala
+            </a>
+        </body>
+        </html>
+    """, 403
+
+
+@app.after_request
+def adauga_headere_securitate(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+
+    return response
 
 
 # ==================================
@@ -94,7 +455,8 @@ def modifica_categorie(id):
             with conn.cursor() as cursor:
                 cursor.execute("""
                     UPDATE categorii
-                    SET nume = %s, descriere = %s
+                    SET nume = %s,
+                        descriere = %s
                     WHERE id = %s
                 """, (nume, descriere, id))
 
@@ -121,7 +483,11 @@ def sterge_categorie(id):
                     return "Categoria nu exista.", 404
 
     except ForeignKeyViolation:
-        return "Categoria nu poate fi stearsa deoarece are carti asociate.", 409
+        return (
+            "Categoria nu poate fi stearsa deoarece "
+            "are carti asociate.",
+            409
+        )
 
     return redirect(url_for("categorii"))
 
@@ -297,12 +663,12 @@ def citeste_date_carte():
     }, None
 
 
-def verifica_referinte(cursor, date):
+def verifica_referinte(cursor, date_carte):
     cursor.execute("""
         SELECT COUNT(*)
         FROM categorii
         WHERE id = %s
-    """, (date["categorie_id"],))
+    """, (date_carte["categorie_id"],))
 
     if cursor.fetchone()[0] != 1:
         return False
@@ -311,9 +677,9 @@ def verifica_referinte(cursor, date):
         SELECT COUNT(*)
         FROM autori
         WHERE id = ANY(%s)
-    """, (date["autori"],))
+    """, (date_carte["autori"],))
 
-    return cursor.fetchone()[0] == len(date["autori"])
+    return cursor.fetchone()[0] == len(date_carte["autori"])
 
 
 def salveaza_autorii_cartii(cursor, carte_id, autor_ids):
@@ -1312,7 +1678,6 @@ def sterge_imprumut(id):
 def lista_rezervari():
     with get_connection() as conn:
         with conn.cursor() as cursor:
-
             cursor.execute("""
                 SELECT
                     r.id,
@@ -1428,7 +1793,6 @@ def citeste_date_rezervare():
     }, None
 
 
-# CREATE
 @app.route("/rezervari/adauga", methods=["POST"])
 def adauga_rezervare():
     date_rezervare, eroare = citeste_date_rezervare()
@@ -1439,7 +1803,6 @@ def adauga_rezervare():
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-
                 cursor.execute("""
                     SELECT COUNT(*)
                     FROM utilizatori
@@ -1483,7 +1846,6 @@ def adauga_rezervare():
     return redirect(url_for("lista_rezervari"))
 
 
-# UPDATE
 @app.route("/rezervari/modifica/<int:id>", methods=["POST"])
 def modifica_rezervare(id):
     date_rezervare, eroare = citeste_date_rezervare()
@@ -1494,7 +1856,6 @@ def modifica_rezervare(id):
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-
                 cursor.execute("""
                     UPDATE rezervari
                     SET cititor_id = %s,
@@ -1530,12 +1891,10 @@ def modifica_rezervare(id):
     return redirect(url_for("lista_rezervari"))
 
 
-# DELETE
 @app.route("/rezervari/sterge/<int:id>", methods=["POST"])
 def sterge_rezervare(id):
     with get_connection() as conn:
         with conn.cursor() as cursor:
-
             cursor.execute("""
                 DELETE FROM rezervari
                 WHERE id = %s
@@ -1548,17 +1907,94 @@ def sterge_rezervare(id):
 
 
 # ==================================
-# PORNIRE FLASK
+# SETARE PAROLA DIN TERMINAL
+# ==================================
+
+def seteaza_parola_utilizator():
+    print()
+    print("SETARE PAROLA UTILIZATOR")
+    print("------------------------")
+
+    email = input(
+        "Email utilizator: "
+    ).strip().lower()
+
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    u.id,
+                    u.nume,
+                    u.prenume,
+                    r.nume
+                FROM utilizatori u
+                JOIN roluri r
+                    ON r.id = u.rol_id
+                WHERE LOWER(u.email) = %s
+            """, (email,))
+
+            utilizator = cursor.fetchone()
+
+    if not utilizator:
+        print("Utilizatorul nu exista.")
+        return
+
+    print()
+    print(
+        f"Utilizator: "
+        f"{utilizator[1]} {utilizator[2]}"
+    )
+    print(f"Rol: {utilizator[3]}")
+
+    parola = getpass("Parola noua: ")
+    confirmare = getpass("Confirma parola: ")
+
+    if parola != confirmare:
+        print("Parolele nu coincid.")
+        return
+
+    if len(parola) < 8:
+        print("Parola trebuie sa aiba minimum 8 caractere.")
+        return
+
+    parola_hash = generate_password_hash(parola)
+
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                UPDATE utilizatori
+                SET parola_hash = %s
+                WHERE id = %s
+            """, (parola_hash, utilizator[0]))
+
+    print()
+    print("Parola a fost actualizata cu succes.")
+
+
+# ==================================
+# PORNIRE APLICATIE
 # ==================================
 
 if __name__ == "__main__":
-    print("Pornesc aplicatia...")
 
-    initialize_fixtures()
+    # Comanda pentru configurarea parolelor:
+    #
+    # python app.py --set-password
 
-    app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=True,
-        use_reloader=False
-    )
+    if (
+        len(sys.argv) > 1
+        and sys.argv[1] == "--set-password"
+    ):
+        seteaza_parola_utilizator()
+
+    else:
+        print("Pornesc aplicatia...")
+
+        initialize_fixtures()
+
+        app.run(
+            host="127.0.0.1",
+            port=5000,
+            debug=False,
+            use_reloader=False
+        )

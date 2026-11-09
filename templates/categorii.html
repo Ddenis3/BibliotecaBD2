@@ -2,88 +2,154 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
     <title>Categorii - Biblioteca</title>
+
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
 
-    <h1>Sistem de Gestionare a unei Biblioteci</h1>
+<h1>Sistem de Gestionare a unei Biblioteci</h1>
 
-    <nav>
-        <a href="/">Acasa</a>
-        <a href="/categorii">Categorii</a>
-    </nav>
+<nav>
+    <a href="/">Acasa</a>
+    <a href="/categorii">Categorii</a>
+    <a href="/autori">Autori</a>
+    <a href="/carti">Carti</a>
+</nav>
 
-    <h2>Gestionarea categoriilor</h2>
+<h2>
+    {% if este_cititor %}
+        Categorii disponibile
+    {% else %}
+        Gestionarea categoriilor
+    {% endif %}
+</h2>
+
+{% if este_administrator or este_bibliotecar %}
 
     <h3>Adauga categorie</h3>
 
     <form action="/categorii/adauga" method="POST">
-        <input type="text" name="nume"
-               placeholder="Numele categoriei"
-               maxlength="100" required>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <input type="text" name="descriere"
-               placeholder="Descriere">
+        <input
+            type="text"
+            name="nume"
+            placeholder="Numele categoriei"
+            maxlength="100"
+            required>
+
+        <input
+            type="text"
+            name="descriere"
+            placeholder="Descriere">
 
         <button type="submit">Adauga</button>
+
     </form>
 
     <hr>
 
-    <h3>Lista categoriilor</h3>
+{% endif %}
 
-    <table border="1" cellpadding="8">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nume</th>
-                <th>Descriere</th>
+<h3>Lista categoriilor</h3>
+
+<table border="1" cellpadding="8">
+
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nume</th>
+            <th>Descriere</th>
+
+            {% if este_administrator or este_bibliotecar %}
                 <th>Modificare</th>
                 <th>Stergere</th>
-            </tr>
-        </thead>
+            {% endif %}
+        </tr>
+    </thead>
 
-        <tbody>
-            {% for categorie in categorii %}
-            <tr>
-                <td>{{ categorie[0] }}</td>
+    <tbody>
+
+        {% for categorie in categorii %}
+
+        <tr>
+
+            <td>{{ categorie[0] }}</td>
+
+            {% if este_cititor %}
+
+                <td>{{ categorie[1] }}</td>
+                <td>{{ categorie[2] or '-' }}</td>
+
+            {% else %}
 
                 <td colspan="3">
+
                     <form
                         action="{{ url_for('modifica_categorie', id=categorie[0]) }}"
                         method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                        <input type="text"
-                               name="nume"
-                               value="{{ categorie[1] }}"
-                               maxlength="100"
-                               required>
+                        <input
+                            type="text"
+                            name="nume"
+                            value="{{ categorie[1] }}"
+                            maxlength="100"
+                            required>
 
-                        <input type="text"
-                               name="descriere"
-                               value="{{ categorie[2] or '' }}">
+                        <input
+                            type="text"
+                            name="descriere"
+                            value="{{ categorie[2] or '' }}">
 
-                        <button type="submit">Salveaza</button>
+                        <button type="submit">
+                            Salveaza
+                        </button>
+
                     </form>
+
                 </td>
 
                 <td>
+
                     <form
                         action="{{ url_for('sterge_categorie', id=categorie[0]) }}"
                         method="POST"
                         onsubmit="return confirm('Sigur stergi categoria?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                        <button type="submit">Sterge</button>
+                        <button type="submit">
+                            Sterge
+                        </button>
+
                     </form>
+
                 </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+
+            {% endif %}
+
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+{% if este_cititor %}
+
+    <p>
+        Acestea sunt categoriile de carti
+        disponibile in biblioteca.
+    </p>
+
+{% endif %}
 
 </body>
 </html>

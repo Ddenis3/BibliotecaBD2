@@ -217,6 +217,7 @@
                         action="{{ url_for('sterge_rol', id=rol[0]) }}"
                         method="POST"
                         onsubmit="return confirm('Sigur vrei sa stergi acest rol?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <button type="submit">
                             Sterge
@@ -251,6 +252,7 @@
         </h2>
 
         <form id="rolForm" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="form-group">
 

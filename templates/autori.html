@@ -3,7 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
     <title>Autori - Biblioteca</title>
 
@@ -13,105 +15,148 @@
 
 <body>
 
-    <h1>Sistem de Gestionare a unei Biblioteci</h1>
+<h1>Sistem de Gestionare a unei Biblioteci</h1>
 
-    <nav>
-        <a href="/">Acasa</a>
-        <a href="/categorii">Categorii</a>
-        <a href="/autori">Autori</a>
-    </nav>
+<nav>
+    <a href="/">Acasa</a>
+    <a href="/categorii">Categorii</a>
+    <a href="/autori">Autori</a>
+    <a href="/carti">Carti</a>
+</nav>
 
-    <h2>Gestionarea autorilor</h2>
+<h2>
+    {% if este_cititor %}
+        Autori disponibili
+    {% else %}
+        Gestionarea autorilor
+    {% endif %}
+</h2>
+
+{% if este_administrator or este_bibliotecar %}
 
     <h3>Adauga autor</h3>
 
-    <form action="{{ url_for('adauga_autor') }}" method="POST">
+    <form action="{{ url_for('adauga_autor') }}"
+          method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <input type="text"
-               name="nume"
-               placeholder="Nume"
-               maxlength="100"
-               required>
+        <input
+            type="text"
+            name="nume"
+            placeholder="Nume"
+            maxlength="100"
+            required>
 
-        <input type="text"
-               name="prenume"
-               placeholder="Prenume"
-               maxlength="100">
+        <input
+            type="text"
+            name="prenume"
+            placeholder="Prenume"
+            maxlength="100">
 
-        <input type="date"
-               name="data_nasterii">
+        <input
+            type="date"
+            name="data_nasterii">
 
-        <input type="text"
-               name="nationalitate"
-               placeholder="Nationalitate"
-               maxlength="100">
+        <input
+            type="text"
+            name="nationalitate"
+            placeholder="Nationalitate"
+            maxlength="100">
 
-        <input type="text"
-               name="biografie"
-               placeholder="Biografie">
+        <input
+            type="text"
+            name="biografie"
+            placeholder="Biografie">
 
-        <button type="submit">Adauga</button>
+        <button type="submit">
+            Adauga
+        </button>
 
     </form>
 
     <hr>
 
-    <h3>Lista autorilor</h3>
+{% endif %}
 
-    <table border="1" cellpadding="8">
+<h3>Lista autorilor</h3>
 
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nume</th>
-                <th>Prenume</th>
-                <th>Data nasterii</th>
-                <th>Nationalitate</th>
-                <th>Biografie</th>
+<table border="1" cellpadding="8">
+
+    <thead>
+
+        <tr>
+            <th>ID</th>
+            <th>Nume</th>
+            <th>Prenume</th>
+            <th>Data nasterii</th>
+            <th>Nationalitate</th>
+            <th>Biografie</th>
+
+            {% if este_administrator or este_bibliotecar %}
                 <th>Modificare</th>
                 <th>Stergere</th>
-            </tr>
-        </thead>
+            {% endif %}
+        </tr>
 
-        <tbody>
+    </thead>
 
-            {% for autor in autori %}
+    <tbody>
 
-            <tr>
+        {% for autor in autori %}
 
-                <td>{{ autor[0] }}</td>
+        <tr>
+
+            <td>{{ autor[0] }}</td>
+
+            {% if este_cititor %}
+
+                <td>{{ autor[1] }}</td>
+                <td>{{ autor[2] or '-' }}</td>
+                <td>{{ autor[3] or '-' }}</td>
+                <td>{{ autor[4] or '-' }}</td>
+                <td>{{ autor[5] or '-' }}</td>
+
+            {% else %}
 
                 <td colspan="6">
 
                     <form
                         action="{{ url_for('modifica_autor', id=autor[0]) }}"
                         method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                        <input type="text"
-                               name="nume"
-                               value="{{ autor[1] }}"
-                               maxlength="100"
-                               required>
+                        <input
+                            type="text"
+                            name="nume"
+                            value="{{ autor[1] }}"
+                            maxlength="100"
+                            required>
 
-                        <input type="text"
-                               name="prenume"
-                               value="{{ autor[2] or '' }}"
-                               maxlength="100">
+                        <input
+                            type="text"
+                            name="prenume"
+                            value="{{ autor[2] or '' }}"
+                            maxlength="100">
 
-                        <input type="date"
-                               name="data_nasterii"
-                               value="{{ autor[3] or '' }}">
+                        <input
+                            type="date"
+                            name="data_nasterii"
+                            value="{{ autor[3] or '' }}">
 
-                        <input type="text"
-                               name="nationalitate"
-                               value="{{ autor[4] or '' }}"
-                               maxlength="100">
+                        <input
+                            type="text"
+                            name="nationalitate"
+                            value="{{ autor[4] or '' }}"
+                            maxlength="100">
 
-                        <input type="text"
-                               name="biografie"
-                               value="{{ autor[5] or '' }}">
+                        <input
+                            type="text"
+                            name="biografie"
+                            value="{{ autor[5] or '' }}">
 
-                        <button type="submit">Salveaza</button>
+                        <button type="submit">
+                            Salveaza
+                        </button>
 
                     </form>
 
@@ -123,20 +168,34 @@
                         action="{{ url_for('sterge_autor', id=autor[0]) }}"
                         method="POST"
                         onsubmit="return confirm('Sigur vrei sa stergi autorul?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                        <button type="submit">Sterge</button>
+                        <button type="submit">
+                            Sterge
+                        </button>
 
                     </form>
 
                 </td>
 
-            </tr>
+            {% endif %}
 
-            {% endfor %}
+        </tr>
 
-        </tbody>
+        {% endfor %}
 
-    </table>
+    </tbody>
+
+</table>
+
+{% if este_cititor %}
+
+    <p>
+        Lista autorilor ale caror carti
+        se regasesc in sistemul bibliotecii.
+    </p>
+
+{% endif %}
 
 </body>
 </html>

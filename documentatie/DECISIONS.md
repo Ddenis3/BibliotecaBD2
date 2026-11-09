@@ -220,3 +220,82 @@ S-a decis prioritizarea funcționalităților CRUD și a unei interfețe utiliza
 Designul vizual final, inclusiv culorile, fonturile și organizarea generală a meniurilor, poate fi realizat ulterior.
 
 Această abordare permite verificarea funcționalităților înainte de aplicarea stilizării finale.
+
+---
+
+## Etapa 3 – Autentificare si roluri
+
+### 26. Pastrarea logicii Python intr-un singur fisier
+
+S-a decis integrarea autentificarii si autorizarii in `app.py`, fara un modul Python separat pentru acestea.
+
+Motivul este usurinta intelegerii, urmaririi si prezentarii codului in contextul proiectului universitar. Paginile HTML raman organizate separat in `templates/`.
+
+### 27. Autentificare cu email si parola
+
+S-a ales autentificarea pe baza adresei de email si a parolei, folosind datele existente in tabelul `utilizatori`.
+
+Nu au fost necesare tabele suplimentare sau un serviciu extern de autentificare.
+
+### 28. Stocarea parolelor sub forma de hash
+
+Parolele noi sunt procesate folosind `generate_password_hash()`, iar la autentificare sunt verificate folosind `check_password_hash()` din Werkzeug.
+
+Astfel, aplicatia nu trebuie sa stocheze parola in text simplu si nici sa o decripteze pentru verificare.
+
+### 29. Utilizarea sesiunilor Flask in locul tokenurilor JWT
+
+S-a ales mecanismul de sesiuni Flask deoarece aplicatia este o interfata web locala, cu formulare HTML si navigare obisnuita.
+
+Dupa login este retinut numai ID-ul utilizatorului in `session["user_id"]`. Cookie-ul este semnat criptografic cu o cheie secreta persistenta; parola nu este salvata in sesiune.
+
+### 30. Cheie secreta separata de cod
+
+S-a ales pastrarea cheii de semnare a sesiunilor in variabila de mediu `FLASK_SECRET_KEY` sau in fisierul local `.flask_secret`.
+
+Fisierul este exclus din Git pentru a evita publicarea secretului. Pe mediul local, cookie-ul nu este marcat `Secure`, deoarece serverul ruleaza prin HTTP; in productie trebuie folosit HTTPS.
+
+### 31. Autorizare pe baza celor trei roluri existente
+
+Au fost pastrate rolurile din baza de date: Administrator, Bibliotecar si Cititor.
+
+Drepturile adoptate sunt:
+
+- **Administrator:** acces la toate sectiunile si operatiile CRUD.
+- **Bibliotecar:** gestionarea categoriilor, autorilor, cartilor, exemplarelor, imprumuturilor si rezervarilor; fara administrarea utilizatorilor si rolurilor.
+- **Cititor:** vizualizarea categoriilor, autorilor si cartilor, fara operatii de modificare.
+
+Aceste diferente respecta cerinta privind minimum trei roluri cu drepturi distincte.
+
+### 32. Verificarea drepturilor in backend
+
+S-a ales verificarea drepturilor inainte de procesarea fiecarei cereri protejate, prin `@app.before_request`.
+
+La fiecare cerere se verifica utilizatorul din sesiune, existenta si starea contului in PostgreSQL, precum si rolul actual. Accesul nepermis returneaza HTTP 403.
+
+Ascunderea butoanelor in HTML este doar o adaptare a interfetei si nu inlocuieste verificarea permisiunilor pe server.
+
+### 33. Interfata adaptata rolului Cititor
+
+S-a decis afisarea doar a informatiilor de catalog in paginile `categorii.html`, `autori.html` si `carti.html` pentru Cititor.
+
+Administratorul si Bibliotecarul pastreaza formularele CRUD. Aceasta separare reduce confuzia in interfata si corespunde drepturilor efective aplicate in backend.
+
+### 34. Protectia CSRF pentru formularele POST
+
+S-a decis utilizarea Flask-WTF si a componentei `CSRFProtect(app)` pentru verificarea tokenurilor trimise in formularele POST.
+
+Au fost adaugate campuri ascunse `csrf_token` in formularele existente, inclusiv login, logout si operatiile CRUD. O cerere POST fara token a fost respinsa de server, confirmand activarea protectiei.
+
+### 35. Pastrarea compatibilitatii cu etapele anterioare
+
+Nu a fost modificata schema PostgreSQL. Au fost pastrate datele demonstrative, conexiunea existenta si rutele CRUD implementate in Etapa 2.
+
+Au fost actualizate dependentele proiectului pentru a include Flask-WTF, iar documentatia a fost completata cu `ETAPA3.md`.
+
+### 36. Limitarea implementarii la cerintele proiectului
+
+Nu s-au introdus JWT, OAuth, autentificare cu doi factori sau recuperare a parolei prin email, deoarece nu sunt necesare pentru cerintele Etapei 3.
+
+S-a prioritizat o implementare simpla, care poate fi explicata si verificata la prezentarea proiectului.
+

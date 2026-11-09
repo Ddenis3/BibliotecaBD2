@@ -242,6 +242,7 @@
                         action="{{ url_for('sterge_utilizator', id=utilizator[0]) }}"
                         method="POST"
                         onsubmit="return confirm('Sigur stergi utilizatorul?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <button type="submit">
                             Sterge
@@ -277,6 +278,7 @@
         </h2>
 
         <form id="utilizatorForm" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="form-group">
 

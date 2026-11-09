@@ -235,6 +235,7 @@
                         action="{{ url_for('sterge_imprumut', id=imprumut[0]) }}"
                         method="POST"
                         onsubmit="return confirm('Sigur stergi imprumutul?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <button type="submit">
                             Sterge
@@ -269,6 +270,7 @@
         </h2>
 
         <form id="imprumutForm" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="form-group">
 

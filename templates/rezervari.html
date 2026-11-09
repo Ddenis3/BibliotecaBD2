@@ -228,6 +228,7 @@
                         action="{{ url_for('sterge_rezervare', id=rezervare[0]) }}"
                         method="POST"
                         onsubmit="return confirm('Sigur stergi rezervarea?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <button type="submit">
                             Sterge
@@ -262,6 +263,7 @@
         </h2>
 
         <form id="rezervareForm" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <!-- CITITOR -->
 
