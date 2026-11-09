@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ro">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Gestionare utilizatori - Biblioteca</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        nav {
+            margin-bottom: 30px;
+        }
+
+        nav a {
+            margin-right: 15px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        input, select, button {
+            font-family: inherit;
+        }
+
+        .toolbar input {
+            width: 300px;
+            padding: 10px;
+        }
+
+        button {
+            padding: 8px 14px;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .actions form {
+            margin: 0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 500px;
+            max-width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 9px;
+            box-sizing: border-box;
+        }
+
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input {
+            width: auto;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .activ {
+            color: green;
+            font-weight: bold;
+        }
+
+        .inactiv {
+            color: #b00020;
+            font-weight: bold;
+        }
+
+        .info {
+            color: #666;
+            font-size: 13px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+<h1>Sistem de Gestionare a unei Biblioteci</h1>
+
+<nav>
+    <a href="/">Acasa</a>
+    <a href="/categorii">Categorii</a>
+    <a href="/autori">Autori</a>
+    <a href="/carti">Carti</a>
+    <a href="/exemplare">Exemplare</a>
+    <a href="/utilizatori">Utilizatori</a>
+</nav>
+
+<h2>Gestionarea utilizatorilor</h2>
+
+<div class="toolbar">
+
+    <input
+        type="search"
+        id="searchInput"
+        placeholder="Cauta dupa nume sau email..."
+        oninput="cautaUtilizatori()">
+
+    <button type="button" onclick="deschideAdaugare()">
+        + Adauga utilizator
+    </button>
+
+</div>
+
+<table>
+
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nume</th>
+            <th>Prenume</th>
+            <th>Email</th>
+            <th>Telefon</th>
+            <th>Rol</th>
+            <th>Activ</th>
+            <th>Data inregistrare</th>
+            <th>Actiuni</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        {% for utilizator in utilizatori %}
+
+        <tr class="utilizator-row">
+
+            <td>{{ utilizator[0] }}</td>
+
+            <td class="nume-utilizator">
+                {{ utilizator[3] }}
+            </td>
+
+            <td class="prenume-utilizator">
+                {{ utilizator[4] }}
+            </td>
+
+            <td class="email-utilizator">
+                {{ utilizator[5] }}
+            </td>
+
+            <td>
+                {{ utilizator[6] or '-' }}
+            </td>
+
+            <td>
+                {{ utilizator[2] }}
+            </td>
+
+            <td>
+                {% if utilizator[8] %}
+                    <span class="activ">Da</span>
+                {% else %}
+                    <span class="inactiv">Nu</span>
+                {% endif %}
+            </td>
+
+            <td>
+                {{ utilizator[7] or '-' }}
+            </td>
+
+            <td>
+
+                <div class="actions">
+
+                    <button
+                        type="button"
+                        onclick="deschideModificare({{ utilizator[0] }})">
+                        Modifica
+                    </button>
+
+                    <form
+                        action="{{ url_for('sterge_utilizator', id=utilizator[0]) }}"
+                        method="POST"
+                        onsubmit="return confirm('Sigur stergi utilizatorul?');">
+
+                        <button type="submit">
+                            Sterge
+                        </button>
+
+                    </form>
+
+                </div>
+
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+<p id="noResults" hidden>
+    Nu au fost gasiti utilizatori.
+</p>
+
+
+<!-- FORMULAR ADAUGARE / MODIFICARE -->
+
+<div class="modal" id="utilizatorModal">
+
+    <div class="modal-content">
+
+        <h2 id="modalTitle">
+            Adauga utilizator
+        </h2>
+
+        <form id="utilizatorForm" method="POST">
+
+            <div class="form-group">
+
+                <label for="nume">Nume</label>
+
+                <input
+                    type="text"
+                    id="nume"
+                    name="nume"
+                    maxlength="100"
+                    required>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="prenume">Prenume</label>
+
+                <input
+                    type="text"
+                    id="prenume"
+                    name="prenume"
+                    maxlength="100"
+                    required>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="email">Email</label>
+
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    maxlength="255"
+                    required>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="telefon">Telefon</label>
+
+                <input
+                    type="tel"
+                    id="telefon"
+                    name="telefon"
+                    maxlength="30">
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="rol_id">Rol</label>
+
+                <select
+                    id="rol_id"
+                    name="rol_id"
+                    required>
+
+                    <option value="">
+                        Selecteaza rolul
+                    </option>
+
+                    {% for rol in roluri %}
+
+                    <option value="{{ rol[0] }}">
+                        {{ rol[1] }}
+                    </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="parola">Parola</label>
+
+                <input
+                    type="password"
+                    id="parola"
+                    name="parola"
+                    autocomplete="new-password">
+
+                <p class="info" id="parolaInfo">
+                    Parola este obligatorie la adaugare.
+                </p>
+
+            </div>
+
+            <div class="form-group checkbox-group">
+
+                <label>
+                    <input
+                        type="checkbox"
+                        id="activCheckbox"
+                        checked>
+
+                    Cont activ
+                </label>
+
+                <input
+                    type="hidden"
+                    id="activ"
+                    name="activ"
+                    value="1">
+
+            </div>
+
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    onclick="inchideModal()">
+                    Anuleaza
+                </button>
+
+                <button type="submit">
+                    Salveaza
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script>
+    const utilizatoriData = {{ utilizatori | tojson }};
+
+    const modal = document.getElementById("utilizatorModal");
+    const formular = document.getElementById("utilizatorForm");
+
+    const parolaInput = document.getElementById("parola");
+    const parolaInfo = document.getElementById("parolaInfo");
+
+    const activCheckbox = document.getElementById("activCheckbox");
+    const activInput = document.getElementById("activ");
+
+
+    function deschideAdaugare() {
+        formular.reset();
+
+        document.getElementById("modalTitle").textContent =
+            "Adauga utilizator";
+
+        formular.action = "/utilizatori/adauga";
+
+        parolaInput.value = "";
+        parolaInput.required = true;
+
+        parolaInfo.textContent =
+            "Parola este obligatorie la adaugare.";
+
+        activCheckbox.checked = true;
+        activInput.value = "1";
+
+        modal.classList.add("active");
+    }
+
+
+    function deschideModificare(id) {
+        const utilizator = utilizatoriData.find(
+            u => u[0] === id
+        );
+
+        if (!utilizator) {
+            alert("Utilizatorul nu a fost gasit.");
+            return;
+        }
+
+        formular.reset();
+
+        document.getElementById("modalTitle").textContent =
+            "Modifica utilizator";
+
+        formular.action = "/utilizatori/modifica/" + id;
+
+        document.getElementById("nume").value =
+            utilizator[3] || "";
+
+        document.getElementById("prenume").value =
+            utilizator[4] || "";
+
+        document.getElementById("email").value =
+            utilizator[5] || "";
+
+        document.getElementById("telefon").value =
+            utilizator[6] || "";
+
+        document.getElementById("rol_id").value =
+            utilizator[1];
+
+        parolaInput.value = "";
+        parolaInput.required = false;
+
+        parolaInfo.textContent =
+            "Lasa necompletat pentru a pastra parola existenta.";
+
+        activCheckbox.checked = utilizator[8] === true;
+        activInput.value = activCheckbox.checked ? "1" : "0";
+
+        modal.classList.add("active");
+    }
+
+
+    activCheckbox.addEventListener("change", function() {
+        activInput.value = activCheckbox.checked ? "1" : "0";
+    });
+
+
+    function inchideModal() {
+        modal.classList.remove("active");
+    }
+
+
+    modal.addEventListener("click", function(event) {
+        if (event.target === modal) {
+            inchideModal();
+        }
+    });
+
+
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape") {
+            inchideModal();
+        }
+    });
+
+
+    function cautaUtilizatori() {
+        const cautare = document
+            .getElementById("searchInput")
+            .value
+            .toLowerCase()
+            .trim();
+
+        let rezultate = 0;
+
+        document.querySelectorAll(".utilizator-row").forEach(rand => {
+            const nume = rand
+                .querySelector(".nume-utilizator")
+                .textContent
+                .toLowerCase();
+
+            const prenume = rand
+                .querySelector(".prenume-utilizator")
+                .textContent
+                .toLowerCase();
+
+            const email = rand
+                .querySelector(".email-utilizator")
+                .textContent
+                .toLowerCase();
+
+            const vizibil =
+                nume.includes(cautare) ||
+                prenume.includes(cautare) ||
+                email.includes(cautare);
+
+            rand.hidden = !vizibil;
+
+            if (vizibil) {
+                rezultate++;
+            }
+        });
+
+        document.getElementById("noResults").hidden =
+            rezultate > 0;
+    }
+</script>
+
+</body>
+</html>

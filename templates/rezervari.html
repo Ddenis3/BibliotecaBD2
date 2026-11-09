@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ro">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Gestionare rezervari - Biblioteca</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        nav {
+            margin-bottom: 30px;
+        }
+
+        nav a {
+            margin-right: 15px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .toolbar input {
+            width: 330px;
+            padding: 10px;
+        }
+
+        button {
+            padding: 8px 14px;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .actions form {
+            margin: 0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 520px;
+            max-width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 9px;
+            box-sizing: border-box;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .info {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .status {
+            display: inline-block;
+            background: #eee;
+            padding: 5px 9px;
+            border-radius: 5px;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+        }
+    </style>
+
+</head>
+
+<body>
+
+<h1>Sistem de Gestionare a unei Biblioteci</h1>
+
+<nav>
+    <a href="/">Acasa</a>
+    <a href="/categorii">Categorii</a>
+    <a href="/autori">Autori</a>
+    <a href="/carti">Carti</a>
+    <a href="/exemplare">Exemplare</a>
+    <a href="/utilizatori">Utilizatori</a>
+    <a href="/roluri">Roluri</a>
+    <a href="/imprumuturi">Imprumuturi</a>
+    <a href="/rezervari">Rezervari</a>
+</nav>
+
+<h2>Gestionarea rezervarilor</h2>
+
+<div class="toolbar">
+
+    <input
+        type="search"
+        id="searchInput"
+        placeholder="Cauta dupa cititor sau carte..."
+        oninput="cautaRezervari()">
+
+    <button type="button" onclick="deschideAdaugare()">
+        + Adauga rezervare
+    </button>
+
+</div>
+
+<table>
+
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Cititor</th>
+            <th>Carte</th>
+            <th>Data rezervare</th>
+            <th>Data expirare</th>
+            <th>Status</th>
+            <th>Actiuni</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        {% for rezervare in rezervari %}
+
+        <tr class="rezervare-row">
+
+            <td>
+                {{ rezervare[0] }}
+            </td>
+
+            <td class="cititor">
+                {{ rezervare[2] }} {{ rezervare[3] }}
+            </td>
+
+            <td class="carte">
+                {{ rezervare[5] }}
+            </td>
+
+            <td>
+                {{ rezervare[6] }}
+            </td>
+
+            <td>
+                {{ rezervare[7] }}
+            </td>
+
+            <td>
+                <span class="status">
+                    {{ rezervare[8] }}
+                </span>
+            </td>
+
+            <td>
+                <div class="actions">
+
+                    <button
+                        type="button"
+                        onclick="deschideModificare({{ rezervare[0] }})">
+                        Modifica
+                    </button>
+
+                    <form
+                        action="{{ url_for('sterge_rezervare', id=rezervare[0]) }}"
+                        method="POST"
+                        onsubmit="return confirm('Sigur stergi rezervarea?');">
+
+                        <button type="submit">
+                            Sterge
+                        </button>
+
+                    </form>
+
+                </div>
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+<p id="noResults" class="empty-message" hidden>
+    Nu au fost gasite rezervari.
+</p>
+
+
+<!-- FORMULAR ADAUGARE / MODIFICARE -->
+
+<div class="modal" id="rezervareModal">
+
+    <div class="modal-content">
+
+        <h2 id="modalTitle">
+            Adauga rezervare
+        </h2>
+
+        <form id="rezervareForm" method="POST">
+
+            <!-- CITITOR -->
+
+            <div class="form-group">
+
+                <label for="cititorText">
+                    Cititor
+                </label>
+
+                <input
+                    type="text"
+                    id="cititorText"
+                    list="cititoriLista"
+                    placeholder="Scrie numele cititorului..."
+                    autocomplete="off"
+                    required>
+
+                <datalist id="cititoriLista">
+
+                    {% for cititor in cititori %}
+
+                    <option
+                        value="{{ cititor[1] }} {{ cititor[2] }} [ID: {{ cititor[0] }}]">
+                    </option>
+
+                    {% endfor %}
+
+                </datalist>
+
+                <input
+                    type="hidden"
+                    id="cititor_id"
+                    name="cititor_id">
+
+            </div>
+
+
+            <!-- CARTE -->
+
+            <div class="form-group">
+
+                <label for="carteText">
+                    Carte
+                </label>
+
+                <input
+                    type="text"
+                    id="carteText"
+                    list="cartiLista"
+                    placeholder="Scrie titlul cartii..."
+                    autocomplete="off"
+                    required>
+
+                <datalist id="cartiLista">
+
+                    {% for carte in carti %}
+
+                    <option
+                        value="{{ carte[1] }} [ID: {{ carte[0] }}]">
+                    </option>
+
+                    {% endfor %}
+
+                </datalist>
+
+                <input
+                    type="hidden"
+                    id="carte_id"
+                    name="carte_id">
+
+            </div>
+
+
+            <!-- DATA REZERVARE -->
+
+            <div class="form-group">
+
+                <label for="data_rezervare">
+                    Data rezervare
+                </label>
+
+                <input
+                    type="date"
+                    id="data_rezervare"
+                    name="data_rezervare"
+                    required>
+
+            </div>
+
+
+            <!-- DATA EXPIRARE -->
+
+            <div class="form-group">
+
+                <label for="data_expirare">
+                    Data expirare
+                </label>
+
+                <input
+                    type="date"
+                    id="data_expirare"
+                    name="data_expirare"
+                    required>
+
+            </div>
+
+
+            <!-- STATUS -->
+
+            <div class="form-group">
+
+                <label for="status">
+                    Status
+                </label>
+
+                <input
+                    type="text"
+                    id="status"
+                    name="status"
+                    list="statusuriLista"
+                    placeholder="Selecteaza statusul..."
+                    autocomplete="off"
+                    required>
+
+                <datalist id="statusuriLista">
+
+                    {% for status in statusuri %}
+
+                    <option value="{{ status }}"></option>
+
+                    {% endfor %}
+
+                </datalist>
+
+                <p class="info">
+                    Selecteaza un status folosit in baza de date.
+                </p>
+
+            </div>
+
+
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    onclick="inchideModal()">
+                    Anuleaza
+                </button>
+
+                <button type="submit">
+                    Salveaza
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script>
+    const rezervariData = {{ rezervari | tojson }};
+    const cititoriData = {{ cititori | tojson }};
+    const cartiData = {{ carti | tojson }};
+    const statusuriData = {{ statusuri | tojson }};
+    const dataAzi = {{ data_azi | tojson }};
+
+    const modal = document.getElementById("rezervareModal");
+    const formular = document.getElementById("rezervareForm");
+
+
+    function etichetaCititor(cititor) {
+        return (
+            cititor[1] + " " + cititor[2] +
+            " [ID: " + cititor[0] + "]"
+        );
+    }
+
+
+    function etichetaCarte(carte) {
+        return (
+            carte[1] + " [ID: " + carte[0] + "]"
+        );
+    }
+
+
+    function adaugaZile(dataText, numarZile) {
+        const parti = dataText.split("-").map(Number);
+
+        const data = new Date(
+            Date.UTC(parti[0], parti[1] - 1, parti[2])
+        );
+
+        data.setUTCDate(
+            data.getUTCDate() + numarZile
+        );
+
+        return data.toISOString().slice(0, 10);
+    }
+
+
+    function dataInput(valoare) {
+        if (!valoare) {
+            return "";
+        }
+
+        const text = String(valoare);
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+            return text;
+        }
+
+        const data = new Date(text);
+
+        if (Number.isNaN(data.getTime())) {
+            return "";
+        }
+
+        return data.toISOString().slice(0, 10);
+    }
+
+
+    // ADAUGARE
+
+    function deschideAdaugare() {
+        formular.reset();
+
+        document.getElementById("modalTitle").textContent =
+            "Adauga rezervare";
+
+        formular.action = "/rezervari/adauga";
+
+        document.getElementById("cititor_id").value = "";
+        document.getElementById("carte_id").value = "";
+
+        document.getElementById("data_rezervare").value =
+            dataAzi;
+
+        document.getElementById("data_expirare").value =
+            adaugaZile(dataAzi, 7);
+
+        document.getElementById("status").value =
+            statusuriData.includes("activa")
+                ? "activa"
+                : (statusuriData[0] || "");
+
+        modal.classList.add("active");
+    }
+
+
+    // MODIFICARE
+
+    function deschideModificare(id) {
+        const rezervare = rezervariData.find(
+            r => r[0] === id
+        );
+
+        if (!rezervare) {
+            alert("Rezervarea nu a fost gasita.");
+            return;
+        }
+
+        formular.reset();
+
+        document.getElementById("modalTitle").textContent =
+            "Modifica rezervare";
+
+        formular.action = "/rezervari/modifica/" + id;
+
+        const cititor = cititoriData.find(
+            c => c[0] === rezervare[1]
+        );
+
+        const carte = cartiData.find(
+            c => c[0] === rezervare[4]
+        );
+
+        document.getElementById("cititorText").value =
+            cititor ? etichetaCititor(cititor) : "";
+
+        document.getElementById("cititor_id").value =
+            rezervare[1];
+
+        document.getElementById("carteText").value =
+            carte ? etichetaCarte(carte) : "";
+
+        document.getElementById("carte_id").value =
+            rezervare[4];
+
+        document.getElementById("data_rezervare").value =
+            dataInput(rezervare[6]);
+
+        document.getElementById("data_expirare").value =
+            dataInput(rezervare[7]);
+
+        document.getElementById("status").value =
+            rezervare[8] || "";
+
+        modal.classList.add("active");
+    }
+
+
+    // VALIDARE FORMULAR
+
+    formular.addEventListener("submit", function(event) {
+
+        const textCititor = document
+            .getElementById("cititorText")
+            .value
+            .trim()
+            .toLowerCase();
+
+        const textCarte = document
+            .getElementById("carteText")
+            .value
+            .trim()
+            .toLowerCase();
+
+        const cititor = cititoriData.find(
+            c => etichetaCititor(c).toLowerCase() === textCititor
+        );
+
+        if (!cititor) {
+            event.preventDefault();
+
+            alert("Selecteaza un cititor existent.");
+            return;
+        }
+
+        const carte = cartiData.find(
+            c => etichetaCarte(c).toLowerCase() === textCarte
+        );
+
+        if (!carte) {
+            event.preventDefault();
+
+            alert("Selecteaza o carte existenta.");
+            return;
+        }
+
+        document.getElementById("cititor_id").value =
+            cititor[0];
+
+        document.getElementById("carte_id").value =
+            carte[0];
+
+        const dataRezervare = document
+            .getElementById("data_rezervare")
+            .value;
+
+        const dataExpirare = document
+            .getElementById("data_expirare")
+            .value;
+
+        if (dataExpirare < dataRezervare) {
+            event.preventDefault();
+
+            alert(
+                "Data expirarii nu poate fi inaintea datei rezervarii."
+            );
+            return;
+        }
+
+        const status = document
+            .getElementById("status")
+            .value
+            .trim();
+
+        if (!status) {
+            event.preventDefault();
+
+            alert("Introdu statusul rezervarii.");
+            return;
+        }
+
+        if (
+            statusuriData.length > 0 &&
+            !statusuriData.includes(status)
+        ) {
+            event.preventDefault();
+
+            alert("Selecteaza un status existent.");
+            return;
+        }
+    });
+
+
+    // INCHIDERE MODAL
+
+    function inchideModal() {
+        modal.classList.remove("active");
+    }
+
+
+    modal.addEventListener("click", function(event) {
+        if (event.target === modal) {
+            inchideModal();
+        }
+    });
+
+
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape") {
+            inchideModal();
+        }
+    });
+
+
+    // CAUTARE
+
+    function cautaRezervari() {
+        const cautare = document
+            .getElementById("searchInput")
+            .value
+            .toLowerCase()
+            .trim();
+
+        let rezultate = 0;
+
+        document.querySelectorAll(".rezervare-row").forEach(rand => {
+
+            const cititor = rand
+                .querySelector(".cititor")
+                .textContent
+                .toLowerCase();
+
+            const carte = rand
+                .querySelector(".carte")
+                .textContent
+                .toLowerCase();
+
+            const vizibil =
+                cititor.includes(cautare) ||
+                carte.includes(cautare);
+
+            rand.hidden = !vizibil;
+
+            if (vizibil) {
+                rezultate++;
+            }
+        });
+
+        document.getElementById("noResults").hidden =
+            rezultate > 0;
+    }
+</script>
+
+</body>
+</html>

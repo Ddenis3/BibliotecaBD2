@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionare carti - Biblioteca</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        nav {
+            margin-bottom: 30px;
+        }
+
+        nav a {
+            margin-right: 15px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        input, textarea, button {
+            font-family: inherit;
+        }
+
+        .toolbar input {
+            width: 300px;
+            padding: 10px;
+        }
+
+        button {
+            padding: 8px 14px;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 550px;
+            max-width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 9px;
+            box-sizing: border-box;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .autocomplete {
+            position: relative;
+        }
+
+        .suggestions {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ccc;
+            max-height: 180px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        .suggestion {
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .suggestion:hover {
+            background: #eee;
+        }
+
+        .selected-authors {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-top: 10px;
+        }
+
+        .author-tag {
+            background: #eee;
+            border: 1px solid #ccc;
+            padding: 6px 10px;
+            border-radius: 5px;
+        }
+
+        .author-tag button {
+            border: none;
+            background: transparent;
+            padding: 0 4px;
+            margin-left: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Sistem de Gestionare a unei Biblioteci</h1>
+
+<nav>
+    <a href="/">Acasa</a>
+    <a href="/categorii">Categorii</a>
+    <a href="/autori">Autori</a>
+    <a href="/carti">Carti</a>
+</nav>
+
+<h2>Gestionarea cartilor</h2>
+
+<div class="toolbar">
+    <input
+        type="search"
+        id="searchInput"
+        placeholder="Cauta carte dupa titlu..."
+        oninput="cautaCarti()">
+
+    <button onclick="deschideAdaugare()">
+        + Adauga carte
+    </button>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Titlu</th>
+            <th>ISBN</th>
+            <th>Categorie</th>
+            <th>Autori</th>
+            <th>An</th>
+            <th>Actiuni</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for carte in carti %}
+        <tr class="carte-row">
+
+            <td>{{ carte[0] }}</td>
+            <td class="titlu-carte">{{ carte[1] }}</td>
+            <td>{{ carte[2] or '-' }}</td>
+            <td>{{ carte[4] }}</td>
+
+            <td>
+                {% set ns = namespace(nume=[]) %}
+
+                {% for autor in autori %}
+                    {% if autor[0] in autori_carti.get(carte[0], []) %}
+                        {% set ns.nume = ns.nume + [
+                            autor[1] ~ ' ' ~ (autor[2] or '')
+                        ] %}
+                    {% endif %}
+                {% endfor %}
+
+                {{ ns.nume | join(', ') }}
+            </td>
+
+            <td>{{ carte[6] or '-' }}</td>
+
+            <td>
+                <div class="actions">
+
+                    <button onclick="deschideModificare({{ carte[0] }})">
+                        Modifica
+                    </button>
+
+                    <form
+                        action="{{ url_for('sterge_carte', id=carte[0]) }}"
+                        method="POST"
+                        onsubmit="return confirm('Sigur stergi cartea?');">
+
+                        <button type="submit">Sterge</button>
+                    </form>
+
+                </div>
+            </td>
+
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p id="noResults" hidden>Nu au fost gasite carti.</p>
+
+<!-- FORMULAR ADAUGARE / MODIFICARE -->
+
+<div class="modal" id="carteModal">
+
+    <div class="modal-content">
+
+        <h2 id="modalTitle">Adauga carte</h2>
+
+        <form id="carteForm" method="POST">
+
+            <div class="form-group">
+                <label>Titlu</label>
+                <input type="text" id="titlu" name="titlu"
+                       maxlength="200" required>
+            </div>
+
+            <div class="form-group">
+                <label>ISBN</label>
+                <input type="text" id="isbn" name="isbn"
+                       maxlength="20">
+            </div>
+
+            <!-- CATEGORIE INTRODUSA DE LA TASTATURA -->
+
+            <div class="form-group">
+                <label>Categorie</label>
+
+                <input
+                    type="text"
+                    id="categorieText"
+                    list="categoriiLista"
+                    placeholder="Scrie categoria..."
+                    autocomplete="off"
+                    required>
+
+                <datalist id="categoriiLista">
+                    {% for categorie in categorii %}
+                        <option value="{{ categorie[1] }}">
+                    {% endfor %}
+                </datalist>
+
+                <input
+                    type="hidden"
+                    id="categorie_id"
+                    name="categorie_id">
+            </div>
+
+            <div class="form-group">
+                <label>Editura</label>
+                <input type="text" id="editura" name="editura"
+                       maxlength="150">
+            </div>
+
+            <div class="form-group">
+                <label>An publicare</label>
+                <input type="number" id="an_publicare"
+                       name="an_publicare" min="1450" max="2100">
+            </div>
+
+            <div class="form-group">
+                <label>Descriere</label>
+                <textarea id="descriere" name="descriere"
+                          rows="3"></textarea>
+            </div>
+
+            <!-- AUTORI INTRODUSI DE LA TASTATURA -->
+
+            <div class="form-group">
+                <label>Autori</label>
+
+                <div class="autocomplete">
+
+                    <input
+                        type="text"
+                        id="autorSearch"
+                        placeholder="Scrie numele autorului..."
+                        autocomplete="off"
+                        oninput="cautaAutori()">
+
+                    <div class="suggestions" id="autorSuggestions"></div>
+
+                </div>
+
+                <div class="selected-authors" id="selectedAuthors"></div>
+
+                <div id="autoriHidden"></div>
+            </div>
+
+            <div class="modal-actions">
+
+                <button type="button" onclick="inchideModal()">
+                    Anuleaza
+                </button>
+
+                <button type="submit">
+                    Salveaza
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+<script>
+    const cartiData = {{ carti | tojson }};
+    const autoriCarti = {{ autori_carti | tojson }};
+
+    const categoriiData = {{ categorii | tojson }};
+    const autoriData = {{ autori | tojson }};
+
+    const modal = document.getElementById("carteModal");
+    const formular = document.getElementById("carteForm");
+
+    let autoriSelectati = [];
+
+    function numeAutor(autor) {
+        return (autor[1] + " " + (autor[2] || "")).trim();
+    }
+
+    function deschideAdaugare() {
+        formular.reset();
+
+        autoriSelectati = [];
+        actualizeazaAutori();
+
+        document.getElementById("modalTitle").textContent =
+            "Adauga carte";
+
+        formular.action = "/carti/adauga";
+
+        document.getElementById("autorSearch").value = "";
+        document.getElementById("autorSuggestions").style.display = "none";
+
+        modal.classList.add("active");
+    }
+
+    function deschideModificare(id) {
+        const carte = cartiData.find(c => c[0] === id);
+
+        if (!carte) return;
+
+        formular.reset();
+
+        document.getElementById("modalTitle").textContent =
+            "Modifica carte";
+
+        formular.action = "/carti/modifica/" + id;
+
+        document.getElementById("titlu").value = carte[1] || "";
+        document.getElementById("isbn").value = carte[2] || "";
+        document.getElementById("editura").value = carte[5] || "";
+        document.getElementById("an_publicare").value = carte[6] || "";
+        document.getElementById("descriere").value = carte[7] || "";
+
+        const categorie = categoriiData.find(
+            c => c[0] === carte[3]
+        );
+
+        document.getElementById("categorieText").value =
+            categorie ? categorie[1] : "";
+
+        document.getElementById("categorie_id").value =
+            carte[3];
+
+        autoriSelectati = [...(autoriCarti[id] || [])];
+
+        actualizeazaAutori();
+
+        document.getElementById("autorSearch").value = "";
+        document.getElementById("autorSuggestions").style.display = "none";
+
+        modal.classList.add("active");
+    }
+
+    function cautaAutori() {
+        const cautare = document
+            .getElementById("autorSearch")
+            .value
+            .toLowerCase()
+            .trim();
+
+        const lista = document.getElementById("autorSuggestions");
+
+        lista.innerHTML = "";
+
+        if (!cautare) {
+            lista.style.display = "none";
+            return;
+        }
+
+        const rezultate = autoriData.filter(autor =>
+            numeAutor(autor).toLowerCase().includes(cautare)
+            && !autoriSelectati.includes(autor[0])
+        );
+
+        rezultate.forEach(autor => {
+            const optiune = document.createElement("div");
+
+            optiune.className = "suggestion";
+            optiune.textContent = numeAutor(autor);
+
+            optiune.addEventListener("click", () => {
+                selecteazaAutor(autor[0]);
+            });
+
+            lista.appendChild(optiune);
+        });
+
+        lista.style.display =
+            rezultate.length > 0 ? "block" : "none";
+    }
+
+    function selecteazaAutor(id) {
+        if (!autoriSelectati.includes(id)) {
+            autoriSelectati.push(id);
+        }
+
+        document.getElementById("autorSearch").value = "";
+        document.getElementById("autorSuggestions").style.display = "none";
+
+        actualizeazaAutori();
+    }
+
+    function eliminaAutor(id) {
+        autoriSelectati = autoriSelectati.filter(a => a !== id);
+        actualizeazaAutori();
+    }
+
+    function actualizeazaAutori() {
+        const container = document.getElementById("selectedAuthors");
+        const hidden = document.getElementById("autoriHidden");
+
+        container.innerHTML = "";
+        hidden.innerHTML = "";
+
+        autoriSelectati.forEach(id => {
+            const autor = autoriData.find(a => a[0] === id);
+
+            if (!autor) return;
+
+            const tag = document.createElement("span");
+            tag.className = "author-tag";
+
+            const text = document.createElement("span");
+            text.textContent = numeAutor(autor);
+
+            const buton = document.createElement("button");
+            buton.type = "button";
+            buton.textContent = "×";
+            buton.addEventListener("click", () => eliminaAutor(id));
+
+            tag.appendChild(text);
+            tag.appendChild(buton);
+            container.appendChild(tag);
+
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "autori";
+            input.value = id;
+
+            hidden.appendChild(input);
+        });
+    }
+
+    formular.addEventListener("submit", function(event) {
+        const categorieText = document
+            .getElementById("categorieText")
+            .value
+            .trim()
+            .toLowerCase();
+
+        const categorie = categoriiData.find(
+            c => c[1].toLowerCase() === categorieText
+        );
+
+        if (!categorie) {
+            event.preventDefault();
+            alert("Selecteaza o categorie existenta.");
+            return;
+        }
+
+        document.getElementById("categorie_id").value =
+            categorie[0];
+
+        if (autoriSelectati.length === 0) {
+            event.preventDefault();
+            alert("Selecteaza cel putin un autor.");
+            return;
+        }
+    });
+
+    function inchideModal() {
+        modal.classList.remove("active");
+    }
+
+    modal.addEventListener("click", event => {
+        if (event.target === modal) inchideModal();
+    });
+
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") inchideModal();
+    });
+
+    function cautaCarti() {
+        const cautare = document
+            .getElementById("searchInput")
+            .value
+            .toLowerCase()
+            .trim();
+
+        let rezultate = 0;
+
+        document.querySelectorAll(".carte-row").forEach(rand => {
+            const titlu = rand
+                .querySelector(".titlu-carte")
+                .textContent
+                .toLowerCase();
+
+            const vizibil = titlu.includes(cautare);
+
+            rand.hidden = !vizibil;
+
+            if (vizibil) rezultate++;
+        });
+
+        document.getElementById("noResults").hidden =
+            rezultate > 0;
+    }
+</script>
+
+</body>
+</html>

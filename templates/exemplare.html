@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ro">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Gestionare exemplare - Biblioteca</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        nav {
+            margin-bottom: 30px;
+        }
+
+        nav a {
+            margin-right: 15px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        input, select, button {
+            font-family: inherit;
+        }
+
+        .toolbar input {
+            width: 300px;
+            padding: 10px;
+        }
+
+        button {
+            padding: 8px 14px;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 500px;
+            max-width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 9px;
+            box-sizing: border-box;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .disponibil {
+            color: green;
+            font-weight: bold;
+        }
+
+        .imprumutat {
+            color: #b26a00;
+            font-weight: bold;
+        }
+
+        .deteriorat {
+            color: #b00020;
+            font-weight: bold;
+        }
+
+        .pierdut {
+            color: #777;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Sistem de Gestionare a unei Biblioteci</h1>
+
+<nav>
+    <a href="/">Acasa</a>
+    <a href="/categorii">Categorii</a>
+    <a href="/autori">Autori</a>
+    <a href="/carti">Carti</a>
+    <a href="/exemplare">Exemplare</a>
+</nav>
+
+<h2>Gestionarea exemplarelor</h2>
+
+<div class="toolbar">
+
+    <input
+        type="search"
+        id="searchInput"
+        placeholder="Cauta dupa carte sau cod..."
+        oninput="cautaExemplare()">
+
+    <button type="button" onclick="deschideAdaugare()">
+        + Adauga exemplar
+    </button>
+
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Carte</th>
+            <th>Cod inventar</th>
+            <th>Stare</th>
+            <th>Data achizitie</th>
+            <th>Actiuni</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        {% for exemplar in exemplare %}
+
+        <tr class="exemplar-row">
+
+            <td>{{ exemplar[0] }}</td>
+
+            <td class="titlu-carte">
+                {{ exemplar[2] }}
+            </td>
+
+            <td class="cod-inventar">
+                {{ exemplar[3] }}
+            </td>
+
+            <td class="{{ exemplar[4] }}">
+                {{ exemplar[4] }}
+            </td>
+
+            <td>
+                {{ exemplar[5] or '-' }}
+            </td>
+
+            <td>
+                <div class="actions">
+
+                    <button
+                        type="button"
+                        onclick="deschideModificare({{ exemplar[0] }})">
+                        Modifica
+                    </button>
+
+                    <form
+                        action="{{ url_for('sterge_exemplar', id=exemplar[0]) }}"
+                        method="POST"
+                        onsubmit="return confirm('Sigur stergi exemplarul?');">
+
+                        <button type="submit">
+                            Sterge
+                        </button>
+
+                    </form>
+
+                </div>
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+</table>
+
+<p id="noResults" hidden>
+    Nu au fost gasite exemplare.
+</p>
+
+
+<!-- FORMULAR ADAUGARE / MODIFICARE -->
+
+<div class="modal" id="exemplarModal">
+
+    <div class="modal-content">
+
+        <h2 id="modalTitle">
+            Adauga exemplar
+        </h2>
+
+        <form id="exemplarForm" method="POST">
+
+            <div class="form-group">
+
+                <label for="carteText">Carte</label>
+
+                <input
+                    type="text"
+                    id="carteText"
+                    list="cartiLista"
+                    placeholder="Scrie titlul cartii..."
+                    autocomplete="off"
+                    required>
+
+                <datalist id="cartiLista">
+
+                    {% for carte in carti %}
+                        <option value="{{ carte[1] }} [ID: {{ carte[0] }}]"></option>
+                    {% endfor %}
+
+                </datalist>
+
+                <input
+                    type="hidden"
+                    id="carte_id"
+                    name="carte_id">
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="cod_inventar">
+                    Cod inventar
+                </label>
+
+                <input
+                    type="text"
+                    id="cod_inventar"
+                    name="cod_inventar"
+                    maxlength="50"
+                    placeholder="Ex: INV-031"
+                    required>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="stare">
+                    Stare exemplar
+                </label>
+
+                <select id="stare" name="stare" required>
+                    <option value="disponibil">Disponibil</option>
+                    <option value="imprumutat">Imprumutat</option>
+                    <option value="deteriorat">Deteriorat</option>
+                    <option value="pierdut">Pierdut</option>
+                </select>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="data_achizitie">
+                    Data achizitie
+                </label>
+
+                <input
+                    type="date"
+                    id="data_achizitie"
+                    name="data_achizitie">
+
+            </div>
+
+            <div class="modal-actions">
+
+                <button type="button" onclick="inchideModal()">
+                    Anuleaza
+                </button>
+
+                <button type="submit">
+                    Salveaza
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script>
+    const exemplareData = {{ exemplare | tojson }};
+    const cartiData = {{ carti | tojson }};
+
+    const modal = document.getElementById("exemplarModal");
+    const formular = document.getElementById("exemplarForm");
+
+    function etichetaCarte(carte) {
+        return carte[1] + " [ID: " + carte[0] + "]";
+    }
+
+    function deschideAdaugare() {
+        formular.reset();
+
+        document.getElementById("modalTitle").textContent =
+            "Adauga exemplar";
+
+        formular.action = "/exemplare/adauga";
+
+        document.getElementById("carte_id").value = "";
+
+        document.getElementById("stare").value =
+            "disponibil";
+
+        modal.classList.add("active");
+    }
+
+    function deschideModificare(id) {
+        const exemplar = exemplareData.find(e => e[0] === id);
+
+        if (!exemplar) {
+            alert("Exemplarul nu a fost gasit.");
+            return;
+        }
+
+        formular.reset();
+
+        document.getElementById("modalTitle").textContent =
+            "Modifica exemplar";
+
+        formular.action = "/exemplare/modifica/" + id;
+
+        const carte = cartiData.find(
+            c => c[0] === exemplar[1]
+        );
+
+        document.getElementById("carteText").value =
+            carte ? etichetaCarte(carte) : "";
+
+        document.getElementById("carte_id").value =
+            exemplar[1];
+
+        document.getElementById("cod_inventar").value =
+            exemplar[3];
+
+        document.getElementById("stare").value =
+            exemplar[4];
+
+        document.getElementById("data_achizitie").value =
+            exemplar[5] || "";
+
+        modal.classList.add("active");
+    }
+
+    formular.addEventListener("submit", function(event) {
+        const text = document
+            .getElementById("carteText")
+            .value
+            .trim();
+
+        const carte = cartiData.find(
+            c => etichetaCarte(c).toLowerCase() === text.toLowerCase()
+        );
+
+        if (!carte) {
+            event.preventDefault();
+
+            alert("Selecteaza o carte existenta.");
+            return;
+        }
+
+        document.getElementById("carte_id").value =
+            carte[0];
+    });
+
+    function inchideModal() {
+        modal.classList.remove("active");
+    }
+
+    modal.addEventListener("click", event => {
+        if (event.target === modal) {
+            inchideModal();
+        }
+    });
+
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            inchideModal();
+        }
+    });
+
+    function cautaExemplare() {
+        const cautare = document
+            .getElementById("searchInput")
+            .value
+            .toLowerCase()
+            .trim();
+
+        let rezultate = 0;
+
+        document.querySelectorAll(".exemplar-row").forEach(rand => {
+            const titlu = rand
+                .querySelector(".titlu-carte")
+                .textContent
+                .toLowerCase();
+
+            const cod = rand
+                .querySelector(".cod-inventar")
+                .textContent
+                .toLowerCase();
+
+            const vizibil =
+                titlu.includes(cautare) ||
+                cod.includes(cautare);
+
+            rand.hidden = !vizibil;
+
+            if (vizibil) {
+                rezultate++;
+            }
+        });
+
+        document.getElementById("noResults").hidden =
+            rezultate > 0;
+    }
+</script>
+
+</body>
+</html>

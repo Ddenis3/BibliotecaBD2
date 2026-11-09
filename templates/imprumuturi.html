@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ro">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Gestionare imprumuturi - Biblioteca</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        nav {
+            margin-bottom: 30px;
+        }
+
+        nav a {
+            margin-right: 15px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .toolbar input {
+            width: 330px;
+            padding: 10px;
+        }
+
+        button {
+            padding: 8px 14px;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .actions form {
+            margin: 0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 520px;
+            max-width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 9px;
+            box-sizing: border-box;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .info {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .status {
+            display: inline-block;
+            background: #eee;
+            padding: 5px 9px;
+            border-radius: 5px;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Sistem de Gestionare a unei Biblioteci</h1>
+
+<nav>
+    <a href="/">Acasa</a>
+    <a href="/categorii">Categorii</a>
+    <a href="/autori">Autori</a>
+    <a href="/carti">Carti</a>
+    <a href="/exemplare">Exemplare</a>
+    <a href="/utilizatori">Utilizatori</a>
+    <a href="/roluri">Roluri</a>
+    <a href="/imprumuturi">Imprumuturi</a>
+</nav>
+
+<h2>Gestionarea imprumuturilor</h2>
+
+<div class="toolbar">
+
+    <input
+        type="search"
+        id="searchInput"
+        placeholder="Cauta cititor, carte sau cod..."
+        oninput="cautaImprumuturi()">
+
+    <button type="button" onclick="deschideAdaugare()">
+        + Adauga imprumut
+    </button>
+
+</div>
+
+<table>
+
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Cititor</th>
+            <th>Carte</th>
+            <th>Cod exemplar</th>
+            <th>Data imprumut</th>
+            <th>Scadenta</th>
+            <th>Returnare</th>
+            <th>Status</th>
+            <th>Actiuni</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        {% for imprumut in imprumuturi %}
+
+        <tr class="imprumut-row">
+
+            <td>{{ imprumut[0] }}</td>
+
+            <td class="cititor">
+                {{ imprumut[2] }} {{ imprumut[3] }}
+            </td>
+
+            <td class="carte">
+                {{ imprumut[6] }}
+            </td>
+
+            <td class="cod">
+                {{ imprumut[5] }}
+            </td>
+
+            <td>
+                {{ imprumut[7] }}
+            </td>
+
+            <td>
+                {{ imprumut[8] }}
+            </td>
+
+            <td>
+                {{ imprumut[9] or '-' }}
+            </td>
+
+            <td>
+                <span class="status">
+                    {{ imprumut[10] }}
+                </span>
+            </td>
+
+            <td>
+                <div class="actions">
+
+                    <button
+                        type="button"
+                        onclick="deschideModificare({{ imprumut[0] }})">
+                        Modifica
+                    </button>
+
+                    <form
+                        action="{{ url_for('sterge_imprumut', id=imprumut[0]) }}"
+                        method="POST"
+                        onsubmit="return confirm('Sigur stergi imprumutul?');">
+
+                        <button type="submit">
+                            Sterge
+                        </button>
+
+                    </form>
+
+                </div>
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+<p id="noResults" class="empty-message" hidden>
+    Nu au fost gasite imprumuturi.
+</p>
+
+
+<!-- FORMULAR ADAUGARE / MODIFICARE -->
+
+<div class="modal" id="imprumutModal">
+
+    <div class="modal-content">
+
+        <h2 id="modalTitle">
+            Adauga imprumut
+        </h2>
+
+        <form id="imprumutForm" method="POST">
+
+            <div class="form-group">
+
+                <label for="cititorText">
+                    Cititor
+                </label>
+
+                <input
+                    type="text"
+                    id="cititorText"
+                    list="cititoriLista"
+                    placeholder="Scrie numele cititorului..."
+                    autocomplete="off"
+                    required>
+
+                <datalist id="cititoriLista">
+
+                    {% for cititor in cititori %}
+
+                    <option
+                        value="{{ cititor[1] }} {{ cititor[2] }} [ID: {{ cititor[0] }}]">
+                    </option>
+
+                    {% endfor %}
+
+                </datalist>
+
+                <input
+                    type="hidden"
+                    id="cititor_id"
+                    name="cititor_id">
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="exemplarText">
+                    Exemplar
+                </label>
+
+                <input
+                    type="text"
+                    id="exemplarText"
+                    list="exemplareLista"
+                    placeholder="Scrie titlul cartii..."
+                    autocomplete="off"
+                    required>
+
+                <datalist id="exemplareLista">
+
+                    {% for exemplar in exemplare %}
+
+                    <option
+                        value="{{ exemplar[2] }} - {{ exemplar[1] }} [ID: {{ exemplar[0] }}]">
+                    </option>
+
+                    {% endfor %}
+
+                </datalist>
+
+                <input
+                    type="hidden"
+                    id="exemplar_id"
+                    name="exemplar_id">
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="data_imprumut">
+                    Data imprumut
+                </label>
+
+                <input
+                    type="date"
+                    id="data_imprumut"
+                    name="data_imprumut"
+                    required>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="data_scadenta">
+                    Data scadenta
+                </label>
+
+                <input
+                    type="date"
+                    id="data_scadenta"
+                    name="data_scadenta"
+                    required>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="data_returnare">
+                    Data returnare
+                </label>
+
+                <input
+                    type="date"
+                    id="data_returnare"
+                    name="data_returnare">
+
+                <p class="info">
+                    Lasa necompletat daca imprumutul nu a fost returnat.
+                </p>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="status">
+                    Status
+                </label>
+
+                <input
+                    type="text"
+                    id="status"
+                    name="status"
+                    list="statusuriLista"
+                    placeholder="Selecteaza statusul..."
+                    autocomplete="off"
+                    required>
+
+                <datalist id="statusuriLista">
+
+                    {% for status in statusuri %}
+
+                    <option value="{{ status }}"></option>
+
+                    {% endfor %}
+
+                </datalist>
+
+                <p class="info">
+                    Foloseste un status acceptat de baza de date.
+                </p>
+
+            </div>
+
+
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    onclick="inchideModal()">
+                    Anuleaza
+                </button>
+
+                <button type="submit">
+                    Salveaza
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+
+<script>
+    const imprumuturiData = {{ imprumuturi | tojson }};
+    const cititoriData = {{ cititori | tojson }};
+    const exemplareData = {{ exemplare | tojson }};
+    const statusuriData = {{ statusuri | tojson }};
+    const dataAzi = {{ data_azi | tojson }};
+
+    const modal = document.getElementById("imprumutModal");
+    const formular = document.getElementById("imprumutForm");
+
+
+    function etichetaCititor(cititor) {
+        return (
+            cititor[1] + " " + cititor[2] +
+            " [ID: " + cititor[0] + "]"
+        );
+    }
+
+
+    function etichetaExemplar(exemplar) {
+        return (
+            exemplar[2] + " - " + exemplar[1] +
+            " [ID: " + exemplar[0] + "]"
+        );
+    }
+
+
+    function adaugaZile(dataText, numarZile) {
+        const parti = dataText.split("-").map(Number);
+
+        const data = new Date(
+            Date.UTC(parti[0], parti[1] - 1, parti[2])
+        );
+
+        data.setUTCDate(
+            data.getUTCDate() + numarZile
+        );
+
+        return data.toISOString().slice(0, 10);
+    }
+
+
+    function deschideAdaugare() {
+        formular.reset();
+
+        document.getElementById("modalTitle").textContent =
+            "Adauga imprumut";
+
+        formular.action = "/imprumuturi/adauga";
+
+        document.getElementById("cititor_id").value = "";
+        document.getElementById("exemplar_id").value = "";
+
+        document.getElementById("data_imprumut").value =
+            dataAzi;
+
+        document.getElementById("data_scadenta").value =
+            adaugaZile(dataAzi, 14);
+
+        document.getElementById("data_returnare").value = "";
+
+        document.getElementById("status").value =
+            statusuriData.includes("activ")
+                ? "activ"
+                : (statusuriData[0] || "");
+
+        modal.classList.add("active");
+    }
+
+
+    function deschideModificare(id) {
+        const imprumut = imprumuturiData.find(
+            i => i[0] === id
+        );
+
+        if (!imprumut) {
+            alert("Imprumutul nu a fost gasit.");
+            return;
+        }
+
+        formular.reset();
+
+        document.getElementById("modalTitle").textContent =
+            "Modifica imprumut";
+
+        formular.action = "/imprumuturi/modifica/" + id;
+
+        const cititor = cititoriData.find(
+            c => c[0] === imprumut[1]
+        );
+
+        const exemplar = exemplareData.find(
+            e => e[0] === imprumut[4]
+        );
+
+        document.getElementById("cititorText").value =
+            cititor ? etichetaCititor(cititor) : "";
+
+        document.getElementById("cititor_id").value =
+            imprumut[1];
+
+        document.getElementById("exemplarText").value =
+            exemplar ? etichetaExemplar(exemplar) : "";
+
+        document.getElementById("exemplar_id").value =
+            imprumut[4];
+
+        document.getElementById("data_imprumut").value =
+            imprumut[7] || "";
+
+        document.getElementById("data_scadenta").value =
+            imprumut[8] || "";
+
+        document.getElementById("data_returnare").value =
+            imprumut[9] || "";
+
+        document.getElementById("status").value =
+            imprumut[10] || "";
+
+        modal.classList.add("active");
+    }
+
+
+    formular.addEventListener("submit", function(event) {
+
+        const textCititor = document
+            .getElementById("cititorText")
+            .value
+            .trim()
+            .toLowerCase();
+
+        const textExemplar = document
+            .getElementById("exemplarText")
+            .value
+            .trim()
+            .toLowerCase();
+
+        const cititor = cititoriData.find(
+            c => etichetaCititor(c).toLowerCase() === textCititor
+        );
+
+        if (!cititor) {
+            event.preventDefault();
+            alert("Selecteaza un cititor existent.");
+            return;
+        }
+
+        const exemplar = exemplareData.find(
+            e => etichetaExemplar(e).toLowerCase() === textExemplar
+        );
+
+        if (!exemplar) {
+            event.preventDefault();
+            alert("Selecteaza un exemplar existent.");
+            return;
+        }
+
+        document.getElementById("cititor_id").value =
+            cititor[0];
+
+        document.getElementById("exemplar_id").value =
+            exemplar[0];
+
+        const imprumut = document
+            .getElementById("data_imprumut")
+            .value;
+
+        const scadenta = document
+            .getElementById("data_scadenta")
+            .value;
+
+        const returnare = document
+            .getElementById("data_returnare")
+            .value;
+
+        if (scadenta < imprumut) {
+            event.preventDefault();
+            alert("Scadenta trebuie sa fie dupa data imprumutului.");
+            return;
+        }
+
+        if (returnare && returnare < imprumut) {
+            event.preventDefault();
+            alert("Returnarea nu poate fi inaintea imprumutului.");
+            return;
+        }
+
+        const status = document
+            .getElementById("status")
+            .value
+            .trim();
+
+        if (!status) {
+            event.preventDefault();
+            alert("Introdu statusul imprumutului.");
+            return;
+        }
+
+        if (
+            statusuriData.length > 0 &&
+            !statusuriData.includes(status)
+        ) {
+            event.preventDefault();
+
+            alert("Selecteaza un status existent.");
+            return;
+        }
+    });
+
+
+    function inchideModal() {
+        modal.classList.remove("active");
+    }
+
+
+    modal.addEventListener("click", function(event) {
+        if (event.target === modal) {
+            inchideModal();
+        }
+    });
+
+
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape") {
+            inchideModal();
+        }
+    });
+
+
+    function cautaImprumuturi() {
+        const cautare = document
+            .getElementById("searchInput")
+            .value
+            .toLowerCase()
+            .trim();
+
+        let rezultate = 0;
+
+        document.querySelectorAll(".imprumut-row").forEach(rand => {
+
+            const cititor = rand
+                .querySelector(".cititor")
+                .textContent
+                .toLowerCase();
+
+            const carte = rand
+                .querySelector(".carte")
+                .textContent
+                .toLowerCase();
+
+            const cod = rand
+                .querySelector(".cod")
+                .textContent
+                .toLowerCase();
+
+            const vizibil =
+                cititor.includes(cautare) ||
+                carte.includes(cautare) ||
+                cod.includes(cautare);
+
+            rand.hidden = !vizibil;
+
+            if (vizibil) {
+                rezultate++;
+            }
+        });
+
+        document.getElementById("noResults").hidden =
+            rezultate > 0;
+    }
+</script>
+
+</body>
+</html>

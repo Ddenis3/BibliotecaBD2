@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categorii - Biblioteca</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <h1>Sistem de Gestionare a unei Biblioteci</h1>
+
+    <nav>
+        <a href="/">Acasa</a>
+        <a href="/categorii">Categorii</a>
+    </nav>
+
+    <h2>Gestionarea categoriilor</h2>
+
+    <h3>Adauga categorie</h3>
+
+    <form action="/categorii/adauga" method="POST">
+        <input type="text" name="nume"
+               placeholder="Numele categoriei"
+               maxlength="100" required>
+
+        <input type="text" name="descriere"
+               placeholder="Descriere">
+
+        <button type="submit">Adauga</button>
+    </form>
+
+    <hr>
+
+    <h3>Lista categoriilor</h3>
+
+    <table border="1" cellpadding="8">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nume</th>
+                <th>Descriere</th>
+                <th>Modificare</th>
+                <th>Stergere</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for categorie in categorii %}
+            <tr>
+                <td>{{ categorie[0] }}</td>
+
+                <td colspan="3">
+                    <form
+                        action="{{ url_for('modifica_categorie', id=categorie[0]) }}"
+                        method="POST">
+
+                        <input type="text"
+                               name="nume"
+                               value="{{ categorie[1] }}"
+                               maxlength="100"
+                               required>
+
+                        <input type="text"
+                               name="descriere"
+                               value="{{ categorie[2] or '' }}">
+
+                        <button type="submit">Salveaza</button>
+                    </form>
+                </td>
+
+                <td>
+                    <form
+                        action="{{ url_for('sterge_categorie', id=categorie[0]) }}"
+                        method="POST"
+                        onsubmit="return confirm('Sigur stergi categoria?');">
+
+                        <button type="submit">Sterge</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>

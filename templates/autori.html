@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ro">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Autori - Biblioteca</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <h1>Sistem de Gestionare a unei Biblioteci</h1>
+
+    <nav>
+        <a href="/">Acasa</a>
+        <a href="/categorii">Categorii</a>
+        <a href="/autori">Autori</a>
+    </nav>
+
+    <h2>Gestionarea autorilor</h2>
+
+    <h3>Adauga autor</h3>
+
+    <form action="{{ url_for('adauga_autor') }}" method="POST">
+
+        <input type="text"
+               name="nume"
+               placeholder="Nume"
+               maxlength="100"
+               required>
+
+        <input type="text"
+               name="prenume"
+               placeholder="Prenume"
+               maxlength="100">
+
+        <input type="date"
+               name="data_nasterii">
+
+        <input type="text"
+               name="nationalitate"
+               placeholder="Nationalitate"
+               maxlength="100">
+
+        <input type="text"
+               name="biografie"
+               placeholder="Biografie">
+
+        <button type="submit">Adauga</button>
+
+    </form>
+
+    <hr>
+
+    <h3>Lista autorilor</h3>
+
+    <table border="1" cellpadding="8">
+
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nume</th>
+                <th>Prenume</th>
+                <th>Data nasterii</th>
+                <th>Nationalitate</th>
+                <th>Biografie</th>
+                <th>Modificare</th>
+                <th>Stergere</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for autor in autori %}
+
+            <tr>
+
+                <td>{{ autor[0] }}</td>
+
+                <td colspan="6">
+
+                    <form
+                        action="{{ url_for('modifica_autor', id=autor[0]) }}"
+                        method="POST">
+
+                        <input type="text"
+                               name="nume"
+                               value="{{ autor[1] }}"
+                               maxlength="100"
+                               required>
+
+                        <input type="text"
+                               name="prenume"
+                               value="{{ autor[2] or '' }}"
+                               maxlength="100">
+
+                        <input type="date"
+                               name="data_nasterii"
+                               value="{{ autor[3] or '' }}">
+
+                        <input type="text"
+                               name="nationalitate"
+                               value="{{ autor[4] or '' }}"
+                               maxlength="100">
+
+                        <input type="text"
+                               name="biografie"
+                               value="{{ autor[5] or '' }}">
+
+                        <button type="submit">Salveaza</button>
+
+                    </form>
+
+                </td>
+
+                <td>
+
+                    <form
+                        action="{{ url_for('sterge_autor', id=autor[0]) }}"
+                        method="POST"
+                        onsubmit="return confirm('Sigur vrei sa stergi autorul?');">
+
+                        <button type="submit">Sterge</button>
+
+                    </form>
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</body>
+</html>
