@@ -1,0 +1,28 @@
+<!DOCTYPE html><html lang="ro"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rapoarte · Biblioteca</title><link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/etapa5_reports.css') }}"></head><body><aside class="sidebar" id="appSidebar" aria-label="Navigatie principala">
+  <a class="brand" href="/"><span class="brand-mark">B<span class="brand-spark">✦</span></span><span class="brand-copy">BIBLIOTECA<small>MANAGEMENT SYSTEM</small></span></a>
+  <div class="side-label">WORKSPACE</div>
+  <nav class="side-nav" aria-label="Sectiuni">
+    <a href="/" class="nav-item {% if request.path == '/' %}is-active{% endif %}"><span class="nav-icon">◫</span><span>Dashboard</span></a>
+    <div class="nav-separator"></div>
+    <div class="side-label side-label-inline">CATALOG</div>
+    <a href="/carti" class="nav-item {% if request.path == '/carti' %}is-active{% endif %}"><span class="nav-icon">▤</span><span>Carti</span></a>
+    <a href="/autori" class="nav-item {% if request.path == '/autori' %}is-active{% endif %}"><span class="nav-icon">♙</span><span>Autori</span></a>
+    <a href="/categorii" class="nav-item {% if request.path == '/categorii' %}is-active{% endif %}"><span class="nav-icon">▦</span><span>Categorii</span></a>
+    {% if este_administrator or este_bibliotecar %}
+    <div class="nav-separator"></div><div class="side-label side-label-inline">OPERATIUNI</div>
+    <a href="/exemplare" class="nav-item {% if request.path == '/exemplare' %}is-active{% endif %}"><span class="nav-icon">▣</span><span>Exemplare</span></a>
+    <a href="/imprumuturi" class="nav-item {% if request.path == '/imprumuturi' %}is-active{% endif %}"><span class="nav-icon">↗</span><span>Imprumuturi</span></a>
+    <a href="/rezervari" class="nav-item {% if request.path == '/rezervari' %}is-active{% endif %}"><span class="nav-icon">◷</span><span>Rezervari</span></a>
+    <a href="/rapoarte" class="nav-item {% if request.path.startswith('/rapoarte') %}is-active{% endif %}"><span class="nav-icon">▥</span><span>Rapoarte</span></a>
+    {% endif %}
+    {% if este_administrator %}
+    <div class="nav-separator"></div><div class="side-label side-label-inline">ADMINISTRARE</div>
+    <a href="/utilizatori" class="nav-item {% if request.path == '/utilizatori' %}is-active{% endif %}"><span class="nav-icon">♧</span><span>Utilizatori</span></a>
+    <a href="/roluri" class="nav-item {% if request.path == '/roluri' %}is-active{% endif %}"><span class="nav-icon">⚙</span><span>Roluri</span></a>
+    {% endif %}
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user"><span class="avatar">{{ (utilizator_autentificat.nume[:1] if utilizator_autentificat else 'U') | upper }}</span><span class="user-copy"><strong>{{ utilizator_autentificat.nume if utilizator_autentificat else 'Utilizator' }} {{ utilizator_autentificat.prenume if utilizator_autentificat else '' }}</strong><small>{{ utilizator_autentificat.rol|capitalize if utilizator_autentificat else '' }}</small></span></div>
+    <form action="/logout" method="POST" class="logout-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="logout-btn">↪ <span>Deconectare</span></button></form>
+  </div>
+</aside><div class="sidebar-scrim" id="sidebarScrim"></div><div class="app-shell"><header class="topbar"><button type="button" class="mobile-menu" id="mobileMenu" aria-label="Deschide meniul">☰</button><div class="breadcrumb">Workspace <span>/</span> <strong>Rapoarte</strong></div><div class="topbar-right"><span class="live-dot"></span> Sistem activ <span class="topbar-divider"></span><span class="top-avatar">{{ (utilizator_autentificat.nume[:1] if utilizator_autentificat else 'U') | upper }}</span></div></header><main class="main-content"><div class="page-intro"><div class="eyebrow"><span class="eyebrow-dot"></span> BIBLIOTECA / RAPOARTE</div><h1>Rapoarte</h1><p>Exporta datele bibliotecii in PDF, Excel sau CSV.</p></div><section class="page-surface report-section"><div class="section-header"><div><span class="section-kicker">EXPORT DATE</span><h2>Alege raportul</h2></div><span class="section-hint">Informatii actualizate din PostgreSQL</span></div><div class="report-grid">{% for cheie, raport in rapoarte.items() %}<article class="report-card"><div class="report-icon">▤</div><h3>{{ raport.titlu }}</h3><p>{% if cheie == 'carti' %}Titlurile din catalog, autorii, categoriile si anii publicarii.{% elif cheie == 'imprumuturi' %}Cititorii, cartile, scadentele si starea imprumuturilor.{% else %}Rezervarile, termenele si statusurile acestora.{% endif %}</p><div class="report-actions"><a href="{{ url_for('descarca_raport', tip=cheie, format_raport='pdf') }}">PDF ↓</a><a href="{{ url_for('descarca_raport', tip=cheie, format_raport='xlsx') }}">Excel ↓</a><a href="{{ url_for('descarca_raport', tip=cheie, format_raport='csv') }}">CSV ↓</a></div></article>{% endfor %}</div><div class="report-note">Rapoartele sunt generate pe baza datelor existente la momentul descarcarii. Acces disponibil pentru Administrator si Bibliotecar.</div></section><footer class="app-footer"><span>Biblioteca Management System</span><span>© 2026 · Rapoarte</span></footer></main></div><script src="{{ url_for('static', filename='js/main.js') }}" defer></script></body></html>

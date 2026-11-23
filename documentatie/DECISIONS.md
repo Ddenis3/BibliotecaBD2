@@ -347,3 +347,38 @@ Au fost testate 5 sesiuni x 20 cereri (100/100 reusite, throughput 20.93 cereri/
 
 S-a decis pastrarea valorilor masurate fara extrapolare catre un mediu de productie. Timpul total din load test include autentificarea sesiunilor, testele SQL reprezinta rulari individuale, iar indecsii demonstrativi nu au accelerat direct pagina `/carti`.
 
+---
+
+## Etapa 5 – Rapoarte PDF, CSV si Excel
+
+### 48. Implementarea celor trei formate de export
+
+Desi cerinta etapei permite PDF, CSV sau Excel, s-a optat pentru toate cele trei formate, folosind acelasi set de date interogate din PostgreSQL pentru fiecare tip de raport. Aceasta ofera prezentare lizibila (PDF) si posibilitate de prelucrare ulterioara (CSV si Excel).
+
+### 49. Alegerea a trei rapoarte bazate pe entitatile proiectului
+
+S-au ales Catalog carti, Raport imprumuturi si Raport rezervari, deoarece corespund direct functionalitatilor existente si folosesc relatiile dintre tabelele bazei de date. Nu au fost introduse tabele suplimentare.
+
+### 50. Pastrarea logicii in app.py
+
+Interogarile, configuratiile rapoartelor si generarea fisierelor au fost integrate in `app.py`, conform structurii adoptate in etapele anterioare. A fost adaugat un template separat `rapoarte.html`, dar nu un nou modul Python pentru logica aplicatiei.
+
+### 51. Generarea fisierelor la cerere
+
+S-a ales generarea rapoartelor la descarcare, pe baza datelor existente in PostgreSQL in acel moment, fara mentinerea unui depozit de exporturi pe server. Fisierele sunt returnate prin `send_file`.
+
+### 52. Alegerea bibliotecilor pentru fisiere
+
+CSV foloseste biblioteca standard `csv`; Excel foloseste `openpyxl` pentru antet, filtre si dimensiuni de coloane; PDF foloseste `reportlab` cu tabel paginat. Pentru exportul tabelar se aplica si o prelucrare a textului care ar putea fi interpretat ca formula.
+
+### 53. Controlul accesului la rapoarte
+
+S-a decis ca rapoartele sa fie accesibile Administratorului si Bibliotecarului, nu Cititorului. Verificarea se face prin mecanismul existent de autorizare din `app.py`, inclusiv pentru ruta de descarcare, nu doar prin ascunderea linkului din interfata.
+
+### 54. Pastrarea designului din redesignul 2026
+
+Pagina Rapoarte si butoanele de export au fost integrate in stilul dark mode al aplicatiei, utilizand `templates/rapoarte.html` si `static/css/etapa5_reports.css`. Nu s-a refacut designul celorlalte pagini pentru aceasta etapa.
+
+### 55. Documentarea verificarii partiale
+
+S-au inspectat un PDF de catalog cu 20 de carti, un Excel de imprumuturi cu 10 inregistrari si un CSV de rezervari cu 5 inregistrari. S-a decis sa nu se execute si sa nu se declare verificate toate cele noua combinatii raport–format. Aceasta limita este mentionata explicit in `ETAPA5.md`.

@@ -28,6 +28,7 @@
     <a href="/exemplare" class="nav-item {% if request.path == '/exemplare' %}is-active{% endif %}"><span class="nav-icon">▣</span><span>Exemplare</span></a>
     <a href="/imprumuturi" class="nav-item {% if request.path == '/imprumuturi' %}is-active{% endif %}"><span class="nav-icon">↗</span><span>Imprumuturi</span></a>
     <a href="/rezervari" class="nav-item {% if request.path == '/rezervari' %}is-active{% endif %}"><span class="nav-icon">◷</span><span>Rezervari</span></a>
+    <a href="/rapoarte" class="nav-item {% if request.path.startswith('/rapoarte') %}is-active{% endif %}"><span class="nav-icon">▥</span><span>Rapoarte</span></a>
     {% endif %}
     {% if este_administrator %}
     <div class="nav-separator"></div><div class="side-label side-label-inline">ADMINISTRARE</div>

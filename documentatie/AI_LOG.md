@@ -283,3 +283,34 @@ Timpul total al testului include si autentificarea sesiunilor; timpii individual
 - Load testul verifica cereri de citire concurente; nu testeaza operatii de scriere sau un server de productie.
 - ChatGPT a furnizat interogarile, codul si explicatiile; rezultatele consemnate provin din executarile locale si capturile verificate in cadrul proiectului.
 
+---
+
+## Etapa 5 – Rapoarte PDF, CSV si Excel
+
+### Instrument AI utilizat
+
+ChatGPT – OpenAI.
+
+### Activitati realizate cu asistenta AI
+
+1. Analizarea cerintei de export PDF, CSV sau Excel si alegerea implementarii tuturor celor trei formate.
+2. Definirea a trei rapoarte: Catalog carti, Raport imprumuturi si Raport rezervari.
+3. Pregatirea interogarilor SQL cu join-uri pentru extragerea datelor relevante; agregarea autorilor cu `string_agg` pentru catalog.
+4. Integrarea logicii rapoartelor in fisierul existent `app.py`, fara un modul Python separat pentru backend.
+5. Implementarea rutelor `GET /rapoarte` si `GET /rapoarte/descarca/<tip>/<format_raport>`.
+6. Utilizarea `csv` pentru CSV, `openpyxl` pentru `.xlsx` si `reportlab` pentru PDF.
+7. Adaptarea paginii de rapoarte si a navigatiei la interfata dark mode existenta.
+8. Pastrarea restrictiilor de acces pentru Administrator si Bibliotecar; Cititorul nu are drept de acces la rapoarte.
+9. Explicarea instalarii dependentelor si a verificarilor necesare.
+10. Inspectarea fisierelor exportate furnizate dupa testarea locala si documentarea limitarilor.
+
+### Rezultate verificate
+
+- Pagina `/rapoarte` a fost afisata in browser cu trei tipuri de raport si butoane PDF, Excel si CSV.
+- PDF pentru catalog: 20 de carti, doua pagini; ultimul rand apare pe pagina a doua.
+- Excel pentru imprumuturi: 10 inregistrari si 8 coloane.
+- CSV pentru rezervari: 5 inregistrari si 6 coloane.
+
+### Limite si responsabilitatea verificarii
+
+Au fost inspectate trei fisiere concrete, cate un exemplu pentru fiecare format, **nu toate cele noua combinatii**. Utilizatorul a decis sa continue fara testarea individuala a celorlalte combinatii. Nu este consemnat un test negativ separat al accesului Cititorului la ruta de rapoarte. ChatGPT a furnizat codul, explicatiile si documentatia; aplicatia si exporturile au fost executate local de autorul proiectului.

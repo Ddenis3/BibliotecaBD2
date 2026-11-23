@@ -2,6 +2,9 @@ import os
 import sys
 import secrets
 import unicodedata
+import csv
+import io
+from datetime import datetime
 
 from pathlib import Path
 from datetime import date
@@ -17,7 +20,8 @@ from flask import (
     session,
     flash,
     abort,
-    g
+    g,
+    send_file
 )
 
 from werkzeug.security import (
@@ -155,6 +159,8 @@ RUTE_PUBLICE = {
 RUTE_BIBLIOTECAR = {
     "home",
     "statistici",
+    "rapoarte",
+    "descarca_raport",
 
     "categorii",
     "adauga_categorie",
@@ -1969,6 +1975,176 @@ def seteaza_parola_utilizator():
 
     print()
     print("Parola a fost actualizata cu succes.")
+
+
+
+
+# ==================================
+# ETAPA 5 - RAPOARTE
+# ==================================
+
+RAPOARTE_DISPONIBILE = {
+    "carti": {
+        "titlu": "Catalog carti",
+        "coloane": ["ID", "Titlu", "ISBN", "Categorie", "Editura", "An publicare", "Autori"],
+        "sql": """
+            SELECT c.id, c.titlu, c.isbn, cat.nume, c.editura,
+                   c.an_publicare,
+                   COALESCE(string_agg(
+                       trim(concat(a.nume, ' ', COALESCE(a.prenume, ''))),
+                       ', ' ORDER BY a.nume, a.prenume
+                   ) FILTER (WHERE a.id IS NOT NULL), '-') AS autori
+            FROM carti c
+            JOIN categorii cat ON cat.id = c.categorie_id
+            LEFT JOIN autori_carti ac ON ac.carte_id = c.id
+            LEFT JOIN autori a ON a.id = ac.autor_id
+            GROUP BY c.id, c.titlu, c.isbn, cat.nume, c.editura, c.an_publicare
+            ORDER BY c.titlu, c.id
+        """
+    },
+    "imprumuturi": {
+        "titlu": "Raport imprumuturi",
+        "coloane": ["ID", "Cititor", "Carte", "Cod exemplar", "Data imprumut", "Scadenta", "Returnare", "Status"],
+        "sql": """
+            SELECT i.id, concat(u.nume, ' ', COALESCE(u.prenume, '')),
+                   c.titlu, e.cod_inventar, i.data_imprumut,
+                   i.data_scadenta, i.data_returnare, i.status
+            FROM imprumuturi i
+            JOIN utilizatori u ON u.id = i.cititor_id
+            JOIN exemplare e ON e.id = i.exemplar_id
+            JOIN carti c ON c.id = e.carte_id
+            ORDER BY i.data_imprumut DESC, i.id DESC
+        """
+    },
+    "rezervari": {
+        "titlu": "Raport rezervari",
+        "coloane": ["ID", "Cititor", "Carte", "Data rezervare", "Data expirare", "Status"],
+        "sql": """
+            SELECT r.id, concat(u.nume, ' ', COALESCE(u.prenume, '')),
+                   c.titlu, r.data_rezervare, r.data_expirare, r.status
+            FROM rezervari r
+            JOIN utilizatori u ON u.id = r.cititor_id
+            JOIN carti c ON c.id = r.carte_id
+            ORDER BY r.data_rezervare DESC, r.id DESC
+        """
+    }
+}
+
+
+def date_raport(tip):
+    configuratie = RAPOARTE_DISPONIBILE[tip]
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(configuratie["sql"])
+            randuri = cursor.fetchall()
+    return configuratie, [
+        ["" if valoare is None else str(valoare) for valoare in rand]
+        for rand in randuri
+    ]
+
+
+def text_sigur_export(valoare):
+    valoare = str(valoare)
+    if valoare.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + valoare
+    return valoare
+
+
+def pdf_text(valoare):
+    from xml.sax.saxutils import escape
+    text_simplu = unicodedata.normalize("NFKD", str(valoare))
+    text_simplu = "".join(c for c in text_simplu if not unicodedata.combining(c))
+    return escape(text_simplu)
+
+
+@app.route("/rapoarte")
+def rapoarte():
+    return render_template("rapoarte.html", rapoarte=RAPOARTE_DISPONIBILE)
+
+
+@app.route("/rapoarte/descarca/<tip>/<format_raport>")
+def descarca_raport(tip, format_raport):
+    if tip not in RAPOARTE_DISPONIBILE or format_raport not in ("csv", "xlsx", "pdf"):
+        abort(404)
+
+    config, randuri = date_raport(tip)
+    coloane = config["coloane"]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    fisier = f"biblioteca_{tip}_{timestamp}.{format_raport}"
+
+    if format_raport == "csv":
+        flux_text = io.StringIO(newline="")
+        writer = csv.writer(flux_text)
+        writer.writerow(coloane)
+        for rand in randuri:
+            writer.writerow([text_sigur_export(v) for v in rand])
+        flux = io.BytesIO(flux_text.getvalue().encode("utf-8-sig"))
+        mimetype = "text/csv; charset=utf-8"
+
+    elif format_raport == "xlsx":
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.utils import get_column_letter
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Raport"
+        ws.append(coloane)
+        for rand in randuri:
+            ws.append([text_sigur_export(v) for v in rand])
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        for cell in ws[1]:
+            cell.fill = PatternFill("solid", fgColor="382A72")
+            cell.font = Font(color="FFFFFF", bold=True)
+            cell.alignment = Alignment(vertical="center")
+        ws.row_dimensions[1].height = 26
+        for col in ws.columns:
+            max_len = max((len(str(c.value or "")) for c in col), default=0)
+            ws.column_dimensions[get_column_letter(col[0].column)].width = min(max(max_len + 3, 13), 50)
+        flux = io.BytesIO()
+        wb.save(flux)
+        flux.seek(0)
+        mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    else:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, LongTable, TableStyle, Paragraph, Spacer
+        from reportlab.lib.enums import TA_LEFT
+        flux = io.BytesIO()
+        doc = SimpleDocTemplate(flux, pagesize=landscape(A4),
+                                leftMargin=27, rightMargin=27, topMargin=30, bottomMargin=30)
+        styles = getSampleStyleSheet()
+        celula = ParagraphStyle("Celula", parent=styles["Normal"], fontName="Helvetica",
+                                 fontSize=7, leading=9, alignment=TA_LEFT)
+        antet = ParagraphStyle("Antet", parent=celula, textColor=colors.white, fontName="Helvetica-Bold")
+        date_tabel = [[Paragraph(pdf_text(v), antet) for v in coloane]]
+        for rand in randuri:
+            date_tabel.append([Paragraph(pdf_text(v), celula) for v in rand])
+        if not randuri:
+            date_tabel.append([Paragraph("Nu exista inregistrari.", celula)] + ["" for _ in coloane[1:]])
+        latime = landscape(A4)[0] - 54
+        ponderi = ([.07, .24, .17, .15, .13, .09, .15] if tip == "carti"
+                   else ([.055, .17, .21, .11, .12, .12, .12, .10] if tip == "imprumuturi"
+                   else [.07, .23, .28, .16, .16, .10]))
+        tabel = LongTable(date_tabel, colWidths=[latime * p for p in ponderi], repeatRows=1)
+        tabel.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#382A72")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F3F1FA")]),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("LINEBELOW", (0, 0), (-1, 0), 1, colors.HexColor("#8B79D4")),
+        ]))
+        continut = [Paragraph(pdf_text(config["titlu"]), styles["Title"]),
+                   Paragraph(f"Generat: {datetime.now():%d.%m.%Y %H:%M} | Inregistrari: {len(randuri)}", styles["Normal"]),
+                   Spacer(1, 14), tabel]
+        doc.build(continut)
+        flux.seek(0)
+        mimetype = "application/pdf"
+
+    return send_file(flux, mimetype=mimetype, as_attachment=True, download_name=fisier)
 
 
 # ==================================
