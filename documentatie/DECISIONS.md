@@ -299,3 +299,51 @@ Nu s-au introdus JWT, OAuth, autentificare cu doi factori sau recuperare a parol
 
 S-a prioritizat o implementare simpla, care poate fi explicata si verificata la prezentarea proiectului.
 
+---
+
+## Etapa 4 – Performanta: indecsi si load testing
+
+### 37. Masurarea performantei inaintea optimizarii
+
+S-a decis folosirea `EXPLAIN (ANALYZE, BUFFERS)` pentru evaluarea planurilor reale de executie si a paginilor accesate. Indecsii nu au fost alesi doar pe baza numelor coloanelor, ci prin raportare la interogari concrete.
+
+### 38. Utilizarea unui tabel separat pentru teste SQL
+
+Tabelul operational `imprumuturi` continea doar 10 inregistrari, insuficiente pentru evidentierea clara a efectului unui index. S-a creat `imprumuturi_perf_test` cu 100.000 de randuri sintetice, independent de cele noua tabele ale aplicatiei. Astfel, datele si constrangerile existente au ramas neafectate. Accelerarile obtinute sunt valabile pentru acest tabel de test, nu automat pentru interogarile reale ale aplicatiei.
+
+### 39. Alegerea unui index compus pentru cautarea imprumuturilor dupa cititor
+
+S-a creat indexul `idx_perf_imprumuturi_cititor_data` pe `(cititor_id, data_imprumut DESC)` pentru interogarea care filtreaza dupa cititor si ordoneaza dupa data. Masuratoarea a indicat reducerea timpului de la 7.442 ms la 0.194 ms. PostgreSQL a ales `Bitmap Index Scan` si `Bitmap Heap Scan` si a pastrat o sortare separata, conform planului observat.
+
+### 40. Alegerea unui index partial pentru imprumuturile active
+
+S-a creat `idx_perf_imprumuturi_active_scadenta` pe `(data_scadenta DESC) WHERE status = 'activ'`, deoarece interogarea analizata foloseste constant filtrul pentru statusul activ si selecteaza un interval de scadenta. Planul a trecut de la `Seq Scan` cu sortare la `Index Scan` fara sortare separata; timpul masurat a scazut de la 6.486 ms la 0.116 ms.
+
+### 41. Pastrarea indecsilor operationali existenti
+
+Indecsii asociati cheilor primare, constrangerilor `UNIQUE` si indexul partial unic `idx_imprumut_activ_unic` nu au fost eliminati sau modificati. Testele nu au presupus schimbarea schemei operationale a bibliotecii.
+
+### 42. Salvarea unui script SQL reproductibil
+
+S-a pregatit fisierul `etapa4_performanta.sql` pentru generarea datelor de test, rularea planurilor inainte si dupa indexare si verificarea indecsilor. Scriptul recreeaza exclusiv `imprumuturi_perf_test`, deci trebuie executat doar atunci cand se doreste reluarea testelor pe acel tabel.
+
+### 43. Alegerea endpointului GET /carti pentru load testing
+
+S-a ales un endpoint existent, care foloseste interogari PostgreSQL si randare HTML, pentru testarea accesului concurent la aplicatia reala. Nu s-au adaugat rute artificiale in `app.py` doar pentru benchmark.
+
+### 44. Utilizarea de sesiuni autentificate si respectarea CSRF
+
+Deoarece accesul la `/carti` necesita autentificare, fiecare worker obtine o sesiune Flask prin formularul `/login` si transmite tokenul CSRF. Astfel, testele nu dezactiveaza protectiile implementate in Etapa 3. A fost utilizat acelasi cont demonstrativ in mai multe sesiuni, nu conturi diferite.
+
+### 45. Implementarea load testului in Python, ca fisier separat
+
+S-a ales scriptul `load_test.py` cu `ThreadPoolExecutor` si bibliotecile standard Python. Separarea acestui utilitar de `app.py` pastreaza logica aplicatiei intr-un singur fisier Python, conform preferintei de la Etapa 3, dar permite rularea testelor de performanta independent. Executarea initiala prin `python -` a produs `EOFError` la citirea credentialelor; salvarea codului intr-un fisier a rezolvat problema.
+
+### 46. Compararea a doua niveluri de concurenta
+
+Au fost testate 5 sesiuni x 20 cereri (100/100 reusite, throughput 20.93 cereri/s, timp mediu 184.738 ms) si 10 sesiuni x 20 cereri (200/200 reusite, throughput 35.84 cereri/s, timp mediu 234.170 ms). Cresterea debitului a fost insotita de cresterea timpului mediu de raspuns; rezultatele reflecta numai mediul local testat.
+
+### 47. Raportarea explicita a limitarilor masuratorilor
+
+S-a decis pastrarea valorilor masurate fara extrapolare catre un mediu de productie. Timpul total din load test include autentificarea sesiunilor, testele SQL reprezinta rulari individuale, iar indecsii demonstrativi nu au accelerat direct pagina `/carti`.
+

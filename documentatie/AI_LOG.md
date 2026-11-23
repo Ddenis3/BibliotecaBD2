@@ -214,3 +214,72 @@ ChatGPT – OpenAI
 
 ChatGPT a oferit cod, explicatii si pasi de testare. Autorul proiectului a integrat modificarile, a executat aplicatia local si a verificat rezultatele afisate. Functionalitatile sunt descrise in `ETAPA3.md`.
 
+---
+
+## Etapa 4 – Performanta: indecsi si load testing
+
+### Instrument AI utilizat
+
+ChatGPT – OpenAI
+
+### Activitati realizate cu asistenta AI
+
+1. Analizarea cerintelor Etapei 4: justificarea indecsilor prin planuri de executie inainte si dupa, respectiv testarea API-ului sub sarcina.
+2. Formularea interogarilor pentru inventarierea inregistrarilor si a indecsilor existenti in PostgreSQL.
+3. Interpretarea planului initial `EXPLAIN (ANALYZE, BUFFERS)` pe tabelul real `imprumuturi`, care continea 10 inregistrari.
+4. Propunerea unui tabel demonstrativ separat, `imprumuturi_perf_test`, cu 100.000 de randuri generate cu `generate_series()`.
+5. Proiectarea si testarea indexului compus `(cititor_id, data_imprumut DESC)` pentru filtrarea si ordonarea imprumuturilor unui cititor.
+6. Proiectarea si testarea indexului partial pe `data_scadenta DESC WHERE status = 'activ'` pentru cautarea imprumuturilor active intr-un interval calendaristic.
+7. Interpretarea planurilor `Seq Scan`, `Bitmap Index Scan`, `Bitmap Heap Scan`, `Index Scan`, a operatiilor de sortare si a indicatorilor `Buffers`, `Planning Time` si `Execution Time`.
+8. Pregatirea scriptului SQL reproductibil `etapa4_performanta.sql` pentru testele de indexare.
+9. Implementarea scriptului `load_test.py`, care creeaza sesiuni autentificate folosind tokenul CSRF si trimite cereri concurente catre `GET /carti`.
+10. Corectarea modului de lansare a load testului, dupa eroarea `EOFError` produsa de transmiterea codului Python prin intrarea standard PowerShell.
+11. Extinderea `load_test.py` pentru primirea numarului de sesiuni si a cererilor per sesiune din argumentele liniei de comanda.
+12. Centralizarea masuratorilor in documentatia `ETAPA4.md`, cu precizarea limitelor testarii.
+
+### Rezultatele masurate pentru indecsi
+
+Au fost analizati indecsii deja existenti in baza de date. Testele de optimizare s-au realizat pe tabelul separat `imprumuturi_perf_test`, fara modificarea celor noua tabele principale.
+
+**Testul 1 – Cautare dupa cititor:**
+
+- Fara index suplimentar: `Seq Scan`, `Execution Time = 7.442 ms`.
+- Cu index compus: `Bitmap Index Scan + Bitmap Heap Scan`, `Execution Time = 0.194 ms`.
+- Accelerare observata la acele executii: aproximativ **38,36x**; reducerea timpului: aproximativ **97,39%**.
+- Planul cu index a mentinut o sortare separata `Quicksort`.
+
+**Testul 2 – Imprumuturi active dupa scadenta:**
+
+- Fara index specific: `Seq Scan` si `Top-N Heapsort`, `Execution Time = 6.486 ms`.
+- Cu index partial: `Index Scan`, fara sortare separata, `Execution Time = 0.116 ms`.
+- Accelerare observata la acele executii: aproximativ **55,91x**; reducerea timpului: aproximativ **98,21%**.
+
+Aceste rezultate provin din executii individuale pe date sintetice si nu demonstreaza aceeasi accelerare a endpointurilor reale ale aplicatiei.
+
+### Testarea API-ului sub sarcina
+
+Endpoint testat: `GET /carti`. Scriptul foloseste acelasi cont de Administrator in sesiuni autentificate separate; nu simuleaza persoane distincte.
+
+| Indicator | 5 sesiuni x 20 cereri | 10 sesiuni x 20 cereri |
+|---|---:|---:|
+| Cereri totale | 100 | 200 |
+| Raspunsuri HTTP 200 | 100 | 200 |
+| Erori | 0 | 0 |
+| Timp total | 4.778 s | 5.580 s |
+| Timp mediu | 184.738 ms | 234.170 ms |
+| P95 | 275.953 ms | 331.570 ms |
+| Throughput raportat de script | 20.93 cereri/s | 35.84 cereri/s |
+
+Timpul total al testului include si autentificarea sesiunilor; timpii individuali masurati se refera la cererile `GET /carti`. Testele au fost efectuate local, cu serverul Flask de dezvoltare.
+
+### Eroare identificata si corectata
+
+**Eroare – `EOFError: EOF when reading a line` la load test.** Prima varianta a scriptului era transmisa printr-un pipeline PowerShell catre `python -`, iar `input()` nu mai putea citi datele de autentificare interactiv. Rezolvarea a constat in salvarea scriptului intr-un fisier separat `load_test.py` si rularea lui direct cu Python.
+
+### Limitari si responsabilitatea verificarii
+
+- Indecsii noi au fost creati pe tabelul demonstrativ, nu pe tabelul operational `imprumuturi`.
+- Valorile `EXPLAIN ANALYZE` au fost comparate pe rulari individuale, fara serii repetate de masuratori sau control strict al cache-ului.
+- Load testul verifica cereri de citire concurente; nu testeaza operatii de scriere sau un server de productie.
+- ChatGPT a furnizat interogarile, codul si explicatiile; rezultatele consemnate provin din executarile locale si capturile verificate in cadrul proiectului.
+
