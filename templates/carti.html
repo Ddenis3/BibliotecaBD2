@@ -6,177 +6,42 @@
 
     <title>Carti - Biblioteca</title>
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 30px;
-        }
-
-        nav {
-            margin-bottom: 30px;
-        }
-
-        nav a {
-            margin-right: 15px;
-        }
-
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        input, textarea, button {
-            font-family: inherit;
-        }
-
-        .toolbar input {
-            width: 300px;
-            max-width: 100%;
-            padding: 10px;
-        }
-
-        button {
-            padding: 8px 14px;
-            cursor: pointer;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 12px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-
-        th {
-            background: #f2f2f2;
-        }
-
-        .actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 25px;
-            border-radius: 8px;
-            width: 550px;
-            max-width: 100%;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 9px;
-            box-sizing: border-box;
-        }
-
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .autocomplete {
-            position: relative;
-        }
-
-        .suggestions {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ccc;
-            max-height: 180px;
-            overflow-y: auto;
-            z-index: 10;
-        }
-
-        .suggestion {
-            padding: 10px;
-            cursor: pointer;
-        }
-
-        .suggestion:hover {
-            background: #eee;
-        }
-
-        .selected-authors {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 7px;
-            margin-top: 10px;
-        }
-
-        .author-tag {
-            background: #eee;
-            border: 1px solid #ccc;
-            padding: 6px 10px;
-            border-radius: 5px;
-        }
-
-        .author-tag button {
-            border: none;
-            background: transparent;
-            padding: 0 4px;
-            margin-left: 6px;
-        }
-
-        .reader-info {
-            background: #f2f2f2;
-            padding: 12px;
-            margin-bottom: 20px;
-            border-radius: 5px;
-        }
-    </style>
-</head>
+    
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"></head>
 
 <body>
+<aside class="sidebar" id="appSidebar" aria-label="Navigatie principala">
+  <a class="brand" href="/"><span class="brand-mark">B<span class="brand-spark">✦</span></span><span class="brand-copy">BIBLIOTECA<small>MANAGEMENT SYSTEM</small></span></a>
+  <div class="side-label">WORKSPACE</div>
+  <nav class="side-nav" aria-label="Sectiuni">
+    <a href="/" class="nav-item {% if request.path == '/' %}is-active{% endif %}"><span class="nav-icon">◫</span><span>Dashboard</span></a>
+    <div class="nav-separator"></div>
+    <div class="side-label side-label-inline">CATALOG</div>
+    <a href="/carti" class="nav-item {% if request.path == '/carti' %}is-active{% endif %}"><span class="nav-icon">▤</span><span>Carti</span></a>
+    <a href="/autori" class="nav-item {% if request.path == '/autori' %}is-active{% endif %}"><span class="nav-icon">♙</span><span>Autori</span></a>
+    <a href="/categorii" class="nav-item {% if request.path == '/categorii' %}is-active{% endif %}"><span class="nav-icon">▦</span><span>Categorii</span></a>
+    {% if este_administrator or este_bibliotecar %}
+    <div class="nav-separator"></div><div class="side-label side-label-inline">OPERATIUNI</div>
+    <a href="/exemplare" class="nav-item {% if request.path == '/exemplare' %}is-active{% endif %}"><span class="nav-icon">▣</span><span>Exemplare</span></a>
+    <a href="/imprumuturi" class="nav-item {% if request.path == '/imprumuturi' %}is-active{% endif %}"><span class="nav-icon">↗</span><span>Imprumuturi</span></a>
+    <a href="/rezervari" class="nav-item {% if request.path == '/rezervari' %}is-active{% endif %}"><span class="nav-icon">◷</span><span>Rezervari</span></a>
+    {% endif %}
+    {% if este_administrator %}
+    <div class="nav-separator"></div><div class="side-label side-label-inline">ADMINISTRARE</div>
+    <a href="/utilizatori" class="nav-item {% if request.path == '/utilizatori' %}is-active{% endif %}"><span class="nav-icon">♧</span><span>Utilizatori</span></a>
+    <a href="/roluri" class="nav-item {% if request.path == '/roluri' %}is-active{% endif %}"><span class="nav-icon">⚙</span><span>Roluri</span></a>
+    {% endif %}
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user"><span class="avatar">{{ (utilizator_autentificat.nume[:1] if utilizator_autentificat else 'U') | upper }}</span><span class="user-copy"><strong>{{ utilizator_autentificat.nume if utilizator_autentificat else 'Utilizator' }} {{ utilizator_autentificat.prenume if utilizator_autentificat else '' }}</strong><small>{{ utilizator_autentificat.rol|capitalize if utilizator_autentificat else '' }}</small></span></div>
+    <form action="/logout" method="POST" class="logout-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="logout-btn">↪ <span>Deconectare</span></button></form>
+  </div>
+</aside><div class="sidebar-scrim" id="sidebarScrim"></div><div class="app-shell"><header class="topbar"><button type="button" class="mobile-menu" id="mobileMenu" aria-label="Deschide meniul">☰</button><div class="breadcrumb">Workspace <span>/</span> <strong>Carti</strong></div><div class="topbar-right"><span class="live-dot"></span> Sistem activ <span class="topbar-divider"></span><span class="top-avatar">{{ (utilizator_autentificat.nume[:1] if utilizator_autentificat else 'U') | upper }}</span></div></header><main class="main-content"><div class="page-intro"><div class="eyebrow"><span class="eyebrow-dot"></span> BIBLIOTECA / CARTI</div><h1>Carti</h1><p>Exploreaza catalogul si gestioneaza colectia de titluri.</p></div><section class="page-surface">
 
-<h1>Sistem de Gestionare a unei Biblioteci</h1>
 
-<nav>
-    <a href="/">Acasa</a>
-    <a href="/categorii">Categorii</a>
-    <a href="/autori">Autori</a>
-    <a href="/carti">Carti</a>
-</nav>
+
+
+
 
 {% if este_cititor %}
     <h2>Catalogul bibliotecii</h2>
@@ -757,5 +622,7 @@
 
 {% endif %}
 
+
+</section><footer class="app-footer"><span>Biblioteca Management System</span><span>© 2026 · Administrare simplificata</span></footer></main></div><script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 </body>
 </html>
